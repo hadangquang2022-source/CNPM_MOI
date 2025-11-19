@@ -1,6 +1,7 @@
 const User = require('./User');
 const Role = require('./Role');
 const Position = require('./Position');
+const Product = require('./Product');
 
 // Define associations
 User.belongsTo(Role, {
@@ -24,5 +25,6 @@ Position.hasMany(User, {
 module.exports = {
     User,
     Role,
-    Position
+    Position,
+    Product
 };
