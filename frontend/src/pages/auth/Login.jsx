@@ -227,9 +227,7 @@ const LoginContent = () => {
 
 // Wrap LoginContent with HashRouter for local routing context compatibility
 const Login = () => (
-    <HashRouter>
         <LoginContent />
-    </HashRouter>
 );
 
 export default Login;
