@@ -1,10 +1,28 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { HashRouter, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { Mail, ArrowLeft, Send } from 'lucide-react';
-import { useAuth } from '../../contexts/AuthContext';
+
+// --- MOCKING EXTERNAL IMPORTS FOR SINGLE-FILE RUNNABLE ENVIRONMENT ---
+const useAuth = () => {
+    const [isLoading, setIsLoading] = React.useState(false);
+    
+    const forgotPassword = async (email) => {
+        setIsLoading(true);
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        setIsLoading(false);
+        
+        if (email.includes('error')) {
+            return { success: false, message: 'User not found or email delivery failed.' };
+        }
+        return { success: true, message: 'Password reset link sent!' };
+    };
+
+    return { forgotPassword, isLoading };
+}; 
+// --- END MOCKING ---
 
 const schema = yup.object({
     email: yup
@@ -13,7 +31,7 @@ const schema = yup.object({
         .required('Email is required'),
 });
 
-const ForgotPassword = () => {
+const ForgotPasswordContent = () => {
     const { forgotPassword, isLoading } = useAuth();
 
     const {
@@ -26,6 +44,9 @@ const ForgotPassword = () => {
     });
 
     const onSubmit = async (data) => {
+        // Clear previous root errors before submission
+        setError('root', { type: 'manual', message: '' }); 
+
         const result = await forgotPassword(data.email);
 
         if (!result.success) {
@@ -34,28 +55,31 @@ const ForgotPassword = () => {
                 message: result.message || 'Failed to send reset email'
             });
         }
+        // NOTE: In a real app, you would navigate to a confirmation screen here if successful.
     };
 
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+        <div className="min-h-screen flex flex-col justify-center py-12 sm:px-6 lg:px-8">
             <div className="sm:mx-auto sm:w-full sm:max-w-md">
                 <div className="text-center">
-                    <Send className="mx-auto h-12 w-12 text-blue-600" />
-                    <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
+                    {/* Icon: Themed Red */}
+                    <Send className="mx-auto h-12 w-12 text-red-600" /> 
+                    <h2 className="mt-6 text-4xl font-extrabold text-gray-900">
                         Forgot your password?
                     </h2>
-                    <p className="mt-2 text-sm text-gray-600">
+                    <p className="mt-2 text-base text-gray-600">
                         Enter your email address and we'll send you a link to reset your password.
                     </p>
                 </div>
             </div>
 
             <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-                <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+                {/* Form Card: Use custom card styling */}
+                <div className="card py-8 px-4 shadow-lg sm:rounded-xl sm:px-10"> 
                     <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
                         {/* Email Field */}
-                        <div>
-                            <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                        <div className="form-group">
+                            <label htmlFor="email" className="form-label">
                                 Email address
                             </label>
                             <div className="mt-1 relative">
@@ -66,24 +90,20 @@ const ForgotPassword = () => {
                                     {...register('email')}
                                     type="email"
                                     autoComplete="email"
-                                    className={`
-                    appearance-none relative block w-full px-3 py-2 pl-10 border 
-                    ${errors.email ? 'border-red-300' : 'border-gray-300'}
-                    placeholder-gray-500 text-gray-900 rounded-md focus:outline-none 
-                    focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm
-                  `}
+                                    // Use custom form-input and error classes
+                                    className={`form-input pl-10 ${errors.email ? 'error' : ''}`}
                                     placeholder="Enter your email"
                                 />
                             </div>
                             {errors.email && (
-                                <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
+                                <p className="error-message">{errors.email.message}</p>
                             )}
                         </div>
 
                         {/* Error Message */}
                         {errors.root && (
-                            <div className="rounded-md bg-red-50 p-4">
-                                <div className="text-sm text-red-700">{errors.root.message}</div>
+                            <div className="rounded-lg bg-red-50 p-4 border border-red-200">
+                                <div className="text-sm font-medium text-red-700">{errors.root.message}</div>
                             </div>
                         )}
 
@@ -92,31 +112,25 @@ const ForgotPassword = () => {
                             <button
                                 type="submit"
                                 disabled={isLoading}
-                                className={`
-                  group relative w-full flex justify-center py-2 px-4 border border-transparent 
-                  text-sm font-medium rounded-md text-white 
-                  ${isLoading
-                                        ? 'bg-gray-400 cursor-not-allowed'
-                                        : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
-                                    }
-                  transition duration-150 ease-in-out
-                `}
+                                // Use custom btn-primary for red gradient/shadow
+                                className={`btn btn-primary w-full text-base ${isLoading ? 'opacity-60 cursor-not-allowed' : ''}`}
                             >
-                                <span className="absolute left-0 inset-y-0 flex items-center pl-3">
-                                    <Send
-                                        className={`h-5 w-5 ${isLoading ? 'text-gray-300' : 'text-blue-500 group-hover:text-blue-400'}`}
-                                    />
-                                </span>
+                                {isLoading ? (
+                                    <div className="spinner mr-2"></div>
+                                ) : (
+                                    <Send className="h-5 w-5 mr-2 text-white" />
+                                )}
                                 {isLoading ? 'Sending...' : 'Send Reset Link'}
                             </button>
                         </div>
                     </form>
 
                     {/* Back to Login */}
-                    <div className="mt-6 text-center">
+                    <div className="mt-6 text-center border-t border-red-100 pt-4">
                         <Link
-                            to="/login"
-                            className="inline-flex items-center text-sm font-medium text-blue-600 hover:text-blue-500"
+                            to="#/login"
+                            // Themed Red Link
+                            className="inline-flex items-center text-base font-semibold text-red-600 hover:text-red-700 transition-colors"
                         >
                             <ArrowLeft className="h-4 w-4 mr-2" />
                             Back to sign in
@@ -127,5 +141,12 @@ const ForgotPassword = () => {
         </div>
     );
 };
+
+// Wrap ForgotPasswordContent with HashRouter for local routing context compatibility
+const ForgotPassword = () => (
+    <HashRouter>
+        <ForgotPasswordContent />
+    </HashRouter>
+);
 
 export default ForgotPassword;

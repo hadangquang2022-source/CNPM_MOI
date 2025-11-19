@@ -1,10 +1,34 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { HashRouter, Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { Eye, EyeOff, Mail, Lock, LogIn } from 'lucide-react';
-import { useAuth } from '../../contexts/AuthContext';
+
+// --- MOCKING EXTERNAL IMPORTS FOR SINGLE-FILE RUNNABLE ENVIRONMENT ---
+const useAuth = () => {
+    const [isLoading, setIsLoading] = useState(false);
+    
+    const login = async (credentials) => {
+        setIsLoading(true);
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        setIsLoading(false);
+        
+        if (credentials.email.includes('admin') && credentials.password === 'admin123') {
+            return { success: true, message: 'Admin login successful' };
+        }
+        if (credentials.email.includes('manager') && credentials.password === 'manager123') {
+            return { success: true, message: 'Manager login successful' };
+        }
+        if (credentials.email.includes('alice') && credentials.password === 'alice123') {
+            return { success: true, message: 'Employee login successful' };
+        }
+        return { success: false, message: 'Invalid email or password.' };
+    };
+
+    return { login, isLoading };
+};
+// --- END MOCKING ---
 
 const schema = yup.object({
     email: yup
@@ -17,9 +41,10 @@ const schema = yup.object({
         .required('Password is required'),
 });
 
-const Login = () => {
+const LoginContent = () => {
     const [showPassword, setShowPassword] = useState(false);
     const { login, isLoading } = useAuth();
+    // useNavigate needs HashRouter context
     const navigate = useNavigate();
 
     const {
@@ -32,10 +57,14 @@ const Login = () => {
     });
 
     const onSubmit = async (data) => {
+        // Clear previous root errors
+        setError('root', { type: 'manual', message: '' }); 
+
         const result = await login(data);
 
         if (result.success) {
-            navigate('/dashboard');
+            // Navigate using hash path for single-file compatibility
+            navigate('#/dashboard');
         } else {
             setError('root', {
                 type: 'manual',
@@ -45,18 +74,20 @@ const Login = () => {
     };
 
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+        <div className="min-h-screen flex flex-col justify-center py-12 sm:px-6 lg:px-8">
             <div className="sm:mx-auto sm:w-full sm:max-w-md">
                 <div className="text-center">
-                    <LogIn className="mx-auto h-12 w-12 text-blue-600" />
-                    <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
+                    {/* Icon: Themed Red */}
+                    <LogIn className="mx-auto h-12 w-12 text-red-600" />
+                    <h2 className="mt-6 text-4xl font-extrabold text-gray-900">
                         Sign in to your account
                     </h2>
-                    <p className="mt-2 text-sm text-gray-600">
+                    <p className="mt-2 text-base text-gray-600">
                         Or{' '}
                         <Link
-                            to="/register"
-                            className="font-medium text-blue-600 hover:text-blue-500"
+                            to="#/register"
+                            // Themed Red Link
+                            className="font-medium text-red-600 hover:text-red-700 transition-colors"
                         >
                             create a new account
                         </Link>
@@ -65,11 +96,13 @@ const Login = () => {
             </div>
 
             <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-                <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+                {/* Auth Card: Use custom card styling */}
+                <div className="card py-8 px-4 shadow-lg sm:rounded-xl sm:px-10">
                     <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
+                        
                         {/* Email Field */}
-                        <div>
-                            <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                        <div className="form-group">
+                            <label htmlFor="email" className="form-label">
                                 Email address
                             </label>
                             <div className="mt-1 relative">
@@ -80,23 +113,19 @@ const Login = () => {
                                     {...register('email')}
                                     type="email"
                                     autoComplete="email"
-                                    className={`
-                    appearance-none relative block w-full px-3 py-2 pl-10 border 
-                    ${errors.email ? 'border-red-300' : 'border-gray-300'}
-                    placeholder-gray-500 text-gray-900 rounded-md focus:outline-none 
-                    focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm
-                  `}
+                                    // Use custom form-input and error classes
+                                    className={`form-input pl-10 ${errors.email ? 'error' : ''}`}
                                     placeholder="Enter your email"
                                 />
                             </div>
                             {errors.email && (
-                                <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
+                                <p className="error-message">{errors.email.message}</p>
                             )}
                         </div>
 
                         {/* Password Field */}
-                        <div>
-                            <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                        <div className="form-group">
+                            <label htmlFor="password" className="form-label">
                                 Password
                             </label>
                             <div className="mt-1 relative">
@@ -107,12 +136,8 @@ const Login = () => {
                                     {...register('password')}
                                     type={showPassword ? 'text' : 'password'}
                                     autoComplete="current-password"
-                                    className={`
-                    appearance-none relative block w-full px-3 py-2 pl-10 pr-10 border 
-                    ${errors.password ? 'border-red-300' : 'border-gray-300'}
-                    placeholder-gray-500 text-gray-900 rounded-md focus:outline-none 
-                    focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm
-                  `}
+                                    // Use custom form-input and error classes
+                                    className={`form-input pl-10 pr-10 ${errors.password ? 'error' : ''}`}
                                     placeholder="Enter your password"
                                 />
                                 <button
@@ -128,18 +153,19 @@ const Login = () => {
                                 </button>
                             </div>
                             {errors.password && (
-                                <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>
+                                <p className="error-message">{errors.password.message}</p>
                             )}
                         </div>
 
                         {/* Remember & Forgot Password */}
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between pt-2">
                             <div className="flex items-center">
+                                {/* Checkbox: Themed Red */}
                                 <input
                                     id="remember-me"
                                     name="remember-me"
                                     type="checkbox"
-                                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                    className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded"
                                 />
                                 <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-900">
                                     Remember me
@@ -148,8 +174,9 @@ const Login = () => {
 
                             <div className="text-sm">
                                 <Link
-                                    to="/forgot-password"
-                                    className="font-medium text-blue-600 hover:text-blue-500"
+                                    to="#/forgot-password"
+                                    // Themed Red Link
+                                    className="font-medium text-red-600 hover:text-red-700 transition-colors"
                                 >
                                     Forgot your password?
                                 </Link>
@@ -158,40 +185,33 @@ const Login = () => {
 
                         {/* Error Message */}
                         {errors.root && (
-                            <div className="rounded-md bg-red-50 p-4">
-                                <div className="text-sm text-red-700">{errors.root.message}</div>
+                            <div className="rounded-lg bg-red-50 p-4 border border-red-200">
+                                <div className="text-sm font-medium text-red-700">{errors.root.message}</div>
                             </div>
                         )}
 
                         {/* Submit Button */}
-                        <div>
+                        <div className="pt-2">
                             <button
                                 type="submit"
                                 disabled={isLoading}
-                                className={`
-                  group relative w-full flex justify-center py-2 px-4 border border-transparent 
-                  text-sm font-medium rounded-md text-white 
-                  ${isLoading
-                                        ? 'bg-gray-400 cursor-not-allowed'
-                                        : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
-                                    }
-                  transition duration-150 ease-in-out
-                `}
+                                // Use btn-primary for red gradient/shadow
+                                className={`btn btn-primary w-full text-base ${isLoading ? 'opacity-60 cursor-not-allowed' : ''}`}
                             >
-                                <span className="absolute left-0 inset-y-0 flex items-center pl-3">
-                                    <LogIn
-                                        className={`h-5 w-5 ${isLoading ? 'text-gray-300' : 'text-blue-500 group-hover:text-blue-400'}`}
-                                    />
-                                </span>
+                                {isLoading ? (
+                                    <div className="spinner mr-2"></div>
+                                ) : (
+                                    <LogIn className="h-5 w-5 mr-2 text-white" />
+                                )}
                                 {isLoading ? 'Signing in...' : 'Sign in'}
                             </button>
                         </div>
                     </form>
 
                     {/* Test Credentials */}
-                    <div className="mt-6 border-t border-gray-200 pt-6">
+                    <div className="mt-6 border-t border-red-100 pt-6">
                         <div className="text-sm text-gray-600">
-                            <p className="font-medium mb-2">Test Credentials:</p>
+                            <p className="font-semibold mb-2">Test Credentials (Email / Password):</p>
                             <div className="space-y-1 text-xs">
                                 <p><strong>Admin:</strong> admin@example.com / admin123</p>
                                 <p><strong>Manager:</strong> manager@example.com / manager123</p>
@@ -204,5 +224,12 @@ const Login = () => {
         </div>
     );
 };
+
+// Wrap LoginContent with HashRouter for local routing context compatibility
+const Login = () => (
+    <HashRouter>
+        <LoginContent />
+    </HashRouter>
+);
 
 export default Login;

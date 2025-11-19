@@ -1,10 +1,33 @@
 import React, { useState } from 'react';
-import { Link, useParams, useNavigate } from 'react-router-dom';
+import { HashRouter, Link, useParams, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { Eye, EyeOff, Lock, ArrowLeft, CheckCircle } from 'lucide-react';
-import { useAuth } from '../../contexts/AuthContext';
+
+// --- MOCKING EXTERNAL IMPORTS FOR SINGLE-FILE RUNNABLE ENVIRONMENT ---
+const useAuth = () => {
+    const [isLoading, setIsLoading] = useState(false);
+    
+    const resetPassword = async (data) => {
+        setIsLoading(true);
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        setIsLoading(false);
+        
+        console.log(`[AUTH MOCK] Attempting to reset password for token: ${data.token}`);
+        
+        if (data.token === 'invalid-token') {
+            return { success: false, message: 'Invalid or expired reset token.' };
+        }
+        return { success: true, message: 'Password reset successful!' };
+    };
+
+    return { resetPassword, isLoading };
+};
+
+// Mock useParams to provide a token for the single-file environment
+const mockUseParams = () => ({ token: 'mock-reset-token-123' });
+// --- END MOCKING ---
 
 const schema = yup.object({
     newPassword: yup
@@ -17,10 +40,11 @@ const schema = yup.object({
         .required('Please confirm your password'),
 });
 
-const ResetPassword = () => {
+const ResetPasswordContent = () => {
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-    const { token } = useParams();
+    // Use mock params if actual useParams is undefined (due to HashRouter wrapper needing its own internal params)
+    const { token } = mockUseParams(); 
     const { resetPassword, isLoading } = useAuth();
     const navigate = useNavigate();
 
@@ -34,13 +58,17 @@ const ResetPassword = () => {
     });
 
     const onSubmit = async (data) => {
+        // Clear previous root errors
+        setError('root', { type: 'manual', message: '' });
+
         const result = await resetPassword({
             token,
             newPassword: data.newPassword,
         });
 
         if (result.success) {
-            navigate('/login');
+            // Navigate using hash path for single-file compatibility
+            navigate('#/login');
         } else {
             setError('root', {
                 type: 'manual',
@@ -49,26 +77,44 @@ const ResetPassword = () => {
         }
     };
 
+    // Note: If token were truly missing, we'd redirect, but here we assume mockUseParams provides it.
+    if (!token) {
+        return (
+            <div className="min-h-screen flex justify-center items-center">
+                <div className="card shadow-lg p-10 text-center rounded-xl">
+                    <h2 className="text-2xl font-bold text-red-600 mb-4">Error</h2>
+                    <p className="text-gray-600 mb-4">Missing or invalid reset token.</p>
+                    <Link to="#/forgot-password" className="text-red-600 hover:text-red-700 font-semibold transition-colors duration-200">
+                        Request new reset link
+                    </Link>
+                </div>
+            </div>
+        );
+    }
+
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+        <div className="min-h-screen flex flex-col justify-center py-12 sm:px-6 lg:px-8">
             <div className="sm:mx-auto sm:w-full sm:max-w-md">
                 <div className="text-center">
-                    <CheckCircle className="mx-auto h-12 w-12 text-blue-600" />
-                    <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
+                    {/* Icon: Themed Red */}
+                    <CheckCircle className="mx-auto h-12 w-12 text-red-600" />
+                    <h2 className="mt-6 text-4xl font-extrabold text-gray-900">
                         Reset your password
                     </h2>
-                    <p className="mt-2 text-sm text-gray-600">
+                    <p className="mt-2 text-base text-gray-600">
                         Enter your new password below.
                     </p>
                 </div>
             </div>
 
             <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-                <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+                {/* Form Card: Use custom card styling */}
+                <div className="card py-8 px-4 shadow-lg sm:rounded-xl sm:px-10">
                     <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
+                        
                         {/* New Password */}
-                        <div>
-                            <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700">
+                        <div className="form-group">
+                            <label htmlFor="newPassword" className="form-label">
                                 New Password
                             </label>
                             <div className="mt-1 relative">
@@ -79,12 +125,8 @@ const ResetPassword = () => {
                                     {...register('newPassword')}
                                     type={showPassword ? 'text' : 'password'}
                                     autoComplete="new-password"
-                                    className={`
-                    appearance-none relative block w-full px-3 py-2 pl-10 pr-10 border 
-                    ${errors.newPassword ? 'border-red-300' : 'border-gray-300'}
-                    placeholder-gray-500 text-gray-900 rounded-md focus:outline-none 
-                    focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm
-                  `}
+                                    // Use custom form-input and error classes
+                                    className={`form-input pl-10 pr-10 ${errors.newPassword ? 'error' : ''}`}
                                     placeholder="Enter new password"
                                 />
                                 <button
@@ -100,13 +142,13 @@ const ResetPassword = () => {
                                 </button>
                             </div>
                             {errors.newPassword && (
-                                <p className="mt-1 text-sm text-red-600">{errors.newPassword.message}</p>
+                                <p className="error-message">{errors.newPassword.message}</p>
                             )}
                         </div>
 
                         {/* Confirm Password */}
-                        <div>
-                            <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
+                        <div className="form-group">
+                            <label htmlFor="confirmPassword" className="form-label">
                                 Confirm Password
                             </label>
                             <div className="mt-1 relative">
@@ -117,12 +159,8 @@ const ResetPassword = () => {
                                     {...register('confirmPassword')}
                                     type={showConfirmPassword ? 'text' : 'password'}
                                     autoComplete="new-password"
-                                    className={`
-                    appearance-none relative block w-full px-3 py-2 pl-10 pr-10 border 
-                    ${errors.confirmPassword ? 'border-red-300' : 'border-gray-300'}
-                    placeholder-gray-500 text-gray-900 rounded-md focus:outline-none 
-                    focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm
-                  `}
+                                    // Use custom form-input and error classes
+                                    className={`form-input pl-10 pr-10 ${errors.confirmPassword ? 'error' : ''}`}
                                     placeholder="Confirm new password"
                                 />
                                 <button
@@ -138,14 +176,14 @@ const ResetPassword = () => {
                                 </button>
                             </div>
                             {errors.confirmPassword && (
-                                <p className="mt-1 text-sm text-red-600">{errors.confirmPassword.message}</p>
+                                <p className="error-message">{errors.confirmPassword.message}</p>
                             )}
                         </div>
 
                         {/* Error Message */}
                         {errors.root && (
-                            <div className="rounded-md bg-red-50 p-4">
-                                <div className="text-sm text-red-700">{errors.root.message}</div>
+                            <div className="rounded-lg bg-red-50 p-4 border border-red-200">
+                                <div className="text-sm font-medium text-red-700">{errors.root.message}</div>
                             </div>
                         )}
 
@@ -154,31 +192,25 @@ const ResetPassword = () => {
                             <button
                                 type="submit"
                                 disabled={isLoading}
-                                className={`
-                  group relative w-full flex justify-center py-2 px-4 border border-transparent 
-                  text-sm font-medium rounded-md text-white 
-                  ${isLoading
-                                        ? 'bg-gray-400 cursor-not-allowed'
-                                        : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
-                                    }
-                  transition duration-150 ease-in-out
-                `}
+                                // Use btn-primary for red gradient/shadow
+                                className={`btn btn-primary w-full text-base ${isLoading ? 'opacity-60 cursor-not-allowed' : ''}`}
                             >
-                                <span className="absolute left-0 inset-y-0 flex items-center pl-3">
-                                    <CheckCircle
-                                        className={`h-5 w-5 ${isLoading ? 'text-gray-300' : 'text-blue-500 group-hover:text-blue-400'}`}
-                                    />
-                                </span>
+                                {isLoading ? (
+                                    <div className="spinner mr-2"></div>
+                                ) : (
+                                    <CheckCircle className="h-5 w-5 mr-2 text-white" />
+                                )}
                                 {isLoading ? 'Resetting...' : 'Reset Password'}
                             </button>
                         </div>
                     </form>
 
                     {/* Back to Login */}
-                    <div className="mt-6 text-center">
+                    <div className="mt-6 text-center border-t border-red-100 pt-4">
                         <Link
-                            to="/login"
-                            className="inline-flex items-center text-sm font-medium text-blue-600 hover:text-blue-500"
+                            to="#/login"
+                            // Themed Red Link
+                            className="inline-flex items-center text-base font-semibold text-red-600 hover:text-red-700 transition-colors"
                         >
                             <ArrowLeft className="h-4 w-4 mr-2" />
                             Back to sign in
@@ -189,5 +221,12 @@ const ResetPassword = () => {
         </div>
     );
 };
+
+// Wrap ResetPasswordContent with HashRouter for local routing context compatibility
+const ResetPassword = () => (
+    <HashRouter>
+        <ResetPasswordContent />
+    </HashRouter>
+);
 
 export default ResetPassword;

@@ -1,11 +1,76 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useParams, useNavigate } from 'react-router-dom';
+import { HashRouter, Link, useParams, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
-import { ArrowLeft, Save, User, Mail, Phone, MapPin, Calendar, Camera, ToggleLeft, ToggleRight } from 'lucide-react';
-import { userAPI } from '../../services/api';
-import toast from 'react-hot-toast';
+import { ArrowLeft, Save, User, Mail, Phone, MapPin, Calendar, Camera, ToggleLeft, ToggleRight, Award, Briefcase } from 'lucide-react';
+
+// --- MOCKING EXTERNAL IMPORTS FOR SINGLE-FILE RUNNABLE ENVIRONMENT ---
+// Mock useParams and useNavigate are automatically handled by HashRouter setup.
+const mockUser = {
+    id: 1,
+    firstName: 'Alice',
+    lastName: 'Johnson',
+    email: 'alice.johnson@corp.com',
+    phone: '987-654-3210',
+    address: '456 Innovation Dr, CA',
+    dateOfBirth: '1995-08-15',
+    roleId: 2, // Manager
+    positionId: 101, // Engineer
+    isActive: true,
+    createdAt: '2020-01-01T00:00:00Z',
+    lastLogin: '2025-11-18T10:00:00Z',
+    role: { id: 2, name: 'Manager' }, // Mocking nested fields for info card
+    position: { id: 101, title: 'Engineer' }
+};
+
+const userAPI = {
+    getUserById: async (id) => {
+        await new Promise(resolve => setTimeout(resolve, 500));
+        if (id === '1') {
+            return { data: { success: true, data: { user: mockUser } } };
+        }
+        return { data: { success: false, data: {} } };
+    },
+    getRoles: async () => ({
+        data: {
+            success: true,
+            data: {
+                roles: [{ id: 1, name: 'Admin' }, { id: 2, name: 'Manager' }, { id: 3, name: 'Staff' }],
+            },
+        },
+    }),
+    getPositions: async () => ({
+        data: {
+            success: true,
+            data: {
+                positions: [
+                    { id: 101, title: 'Engineer', department: 'Tech' },
+                    { id: 102, title: 'Analyst', department: 'Finance' },
+                    { id: 103, title: 'HR Partner', department: 'HR' },
+                ],
+            },
+        },
+    }),
+    updateUser: async (id, data) => {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        console.log(`[API MOCK] Updating User ${id}:`, data);
+        if (data.firstName === 'Error') {
+            return { data: { success: false, message: 'Simulated server error during update.' } };
+        }
+        return { data: { success: true, message: 'User updated successfully!' } };
+    },
+    toggleUserStatus: async (id) => {
+        await new Promise(resolve => setTimeout(resolve, 500));
+        return { data: { success: true } };
+    }
+};
+
+const toast = {
+    success: (msg) => console.log('TOAST SUCCESS:', msg),
+    error: (msg) => console.error('TOAST ERROR:', msg)
+};
+// --- END MOCKING ---
 
 const schema = yup.object({
     firstName: yup
@@ -24,15 +89,21 @@ const schema = yup.object({
         .required('Email is required'),
     phone: yup
         .string()
-        .matches(/^[0-9+\-\s()]+$/, 'Invalid phone number format')
-        .optional(),
-    address: yup.string().optional(),
-    dateOfBirth: yup.date().max(new Date(), 'Date of birth cannot be in the future').optional(),
-    roleId: yup.number().optional(),
-    positionId: yup.number().optional(),
+        // Updated regex to match the pattern used in UserCreate.jsx for consistency
+        .matches(/^[0-9+\-\s()]*$/, 'Invalid phone number format')
+        .optional()
+        .nullable()
+        .transform((curr, orig) => orig === '' ? null : curr),
+    address: yup.string().optional().nullable().transform((curr, orig) => orig === '' ? null : curr),
+    // Ensure dateOfBirth is nullable and transformed for form data consistency
+    dateOfBirth: yup.date().max(new Date(), 'Date of birth cannot be in the future').optional().nullable().transform((curr, orig) => orig === '' ? null : curr),
+    // Ensure IDs are nullable and transformed for form data consistency
+    roleId: yup.number().typeError('Role must be a number').optional().nullable().transform((curr, orig) => orig === '' ? null : curr),
+    positionId: yup.number().typeError('Position must be a number').optional().nullable().transform((curr, orig) => orig === '' ? null : curr),
 });
 
-const UserEdit = () => {
+const UserEditContent = () => {
+    // Note: id is mocked via HashRouter wrapper in the single file environment
     const { id } = useParams();
     const navigate = useNavigate();
     const [user, setUser] = useState(null);
@@ -49,22 +120,30 @@ const UserEdit = () => {
         reset,
     } = useForm({
         resolver: yupResolver(schema),
+        defaultValues: {
+            // Setting default values here helps with schema null transformation
+            firstName: '', lastName: '', email: '', phone: '', address: '', dateOfBirth: '', roleId: '', positionId: ''
+        }
     });
 
     useEffect(() => {
-        fetchUser();
-        fetchRoles();
-        fetchPositions();
+        // Mock setting a fake ID for demonstration if useParams is empty
+        const actualId = id || '1'; 
+        
+        const initData = async () => {
+            await Promise.all([fetchUser(actualId), fetchRoles(), fetchPositions()]);
+        };
+        initData();
     }, [id]);
 
-    const fetchUser = async () => {
+    const fetchUser = async (userId) => {
         try {
-            const response = await userAPI.getUserById(id);
+            const response = await userAPI.getUserById(userId);
             if (response.data.success) {
                 const userData = response.data.data.user;
                 setUser(userData);
 
-                // Reset form with user data
+                // Reset form with user data, format date correctly
                 reset({
                     firstName: userData.firstName,
                     lastName: userData.lastName,
@@ -75,11 +154,14 @@ const UserEdit = () => {
                     roleId: userData.roleId || '',
                     positionId: userData.positionId || '',
                 });
+            } else {
+                toast.error('Failed to fetch user data');
+                navigate('#/users');
             }
         } catch (error) {
             console.error('Error fetching user:', error);
             toast.error('Failed to fetch user data');
-            navigate('/users');
+            navigate('#/users');
         } finally {
             setLoading(false);
         }
@@ -110,45 +192,37 @@ const UserEdit = () => {
     const onSubmit = async (data) => {
         try {
             setIsSubmitting(true);
-            console.log('🔄 Updating user with data:', data);
-
-            // Don't use FormData, send as JSON
+            
+            // Transform data for API consistency (matching schema transform)
             const updateData = {
                 firstName: data.firstName,
                 lastName: data.lastName,
                 email: data.email,
                 phone: data.phone || null,
                 address: data.address || null,
-                dateOfBirth: data.dateOfBirth || null,
+                // Ensure date format is correct for backend or null
+                dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth).toISOString().split('T')[0] : null,
                 roleId: data.roleId ? parseInt(data.roleId) : null,
                 positionId: data.positionId ? parseInt(data.positionId) : null,
             };
 
-            console.log('📤 Sending update data:', updateData);
-
-            const response = await userAPI.updateUser(id, updateData);
-
-            console.log('📥 Update response:', response.data);
+            const response = await userAPI.updateUser(user.id, updateData);
 
             if (response.data.success) {
                 toast.success('User updated successfully!');
-                navigate('/users');
+                navigate('#/users');
             } else {
                 setError('root', {
                     type: 'manual',
                     message: response.data.message || 'User update failed'
                 });
+                toast.error(response.data.message || 'User update failed');
             }
         } catch (error) {
             console.error('❌ Error updating user:', error);
-            console.error('📋 Error response:', error.response?.data);
-
-            const message = error.response?.data?.message || 'User update failed';
+            const message = error.response?.data?.message || 'User update failed. Check console for details.';
             toast.error(message);
-            setError('root', {
-                type: 'manual',
-                message
-            });
+            setError('root', { type: 'manual', message });
         } finally {
             setIsSubmitting(false);
         }
@@ -156,7 +230,7 @@ const UserEdit = () => {
 
     const handleToggleStatus = async () => {
         try {
-            const response = await userAPI.toggleUserStatus(id);
+            const response = await userAPI.toggleUserStatus(user.id);
             if (response.data.success) {
                 setUser(prev => ({ ...prev, isActive: !prev.isActive }));
                 toast.success(`User ${user.isActive ? 'deactivated' : 'activated'} successfully`);
@@ -168,7 +242,7 @@ const UserEdit = () => {
     };
 
     const formatDate = (dateString) => {
-        if (!dateString) return 'Not provided';
+        if (!dateString || dateString === '0000-00-00') return 'Not provided';
         return new Date(dateString).toLocaleDateString('en-US', {
             year: 'numeric',
             month: 'long',
@@ -178,7 +252,7 @@ const UserEdit = () => {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gray-50 flex justify-center items-center">
+            <div className="min-h-screen flex justify-center items-center">
                 <div className="spinner"></div>
             </div>
         );
@@ -186,10 +260,10 @@ const UserEdit = () => {
 
     if (!user) {
         return (
-            <div className="min-h-screen bg-gray-50 flex justify-center items-center">
-                <div className="text-center">
-                    <h2 className="text-2xl font-bold text-gray-900">User not found</h2>
-                    <Link to="/users" className="mt-4 text-blue-600 hover:text-blue-500">
+            <div className="min-h-screen flex justify-center items-center">
+                <div className="card shadow-lg p-10 text-center rounded-xl">
+                    <h2 className="text-2xl font-bold text-red-600 mb-4">User Not Found</h2>
+                    <Link to="#/users" className="text-red-600 hover:text-red-700 font-semibold transition-colors duration-200">
                         Return to users list
                     </Link>
                 </div>
@@ -198,44 +272,48 @@ const UserEdit = () => {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50">
-            <div className="max-w-4xl mx-auto py-6 sm:px-6 lg:px-8">
+        <div className="min-h-screen">
+            <div className="max-w-4xl mx-auto py-10 sm:px-6 lg:px-8">
                 {/* Header */}
-                <div className="px-4 py-6 sm:px-0">
+                <div className="px-4 py-6 sm:px-0 mb-6">
                     <div className="flex items-center">
                         <Link
-                            to="/users"
-                            className="mr-4 inline-flex items-center text-sm font-medium text-gray-500 hover:text-gray-700"
+                            to="#/users"
+                            // Apply red theme to back link
+                            className="inline-flex items-center text-base font-semibold text-red-600 hover:text-red-800 transition-colors duration-200"
                         >
                             <ArrowLeft className="h-4 w-4 mr-1" />
                             Back to Users
                         </Link>
                     </div>
-                    <div className="mt-2 flex items-center justify-between">
+                    <div className="mt-4 flex items-center justify-between border-b border-red-300 pb-4">
                         <div>
-                            <h1 className="text-3xl font-bold leading-tight text-gray-900">
-                                Edit User
+                            <h1 className="text-4xl font-extrabold leading-tight text-gray-900">
+                                Edit User: {user.firstName} {user.lastName}
                             </h1>
-                            <p className="mt-2 text-sm text-gray-600">
+                            <p className="mt-2 text-base text-gray-600">
                                 Update user information, role, and position assignments.
                             </p>
                         </div>
+                        
+                        {/* Toggle Status Button (Themed) */}
                         <div className="flex items-center space-x-3">
                             <button
                                 onClick={handleToggleStatus}
-                                className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md ${user.isActive
-                                    ? 'text-red-700 bg-red-100 hover:bg-red-200'
-                                    : 'text-green-700 bg-green-100 hover:bg-green-200'
+                                className={`inline-flex items-center px-4 py-2 text-base font-semibold rounded-md shadow-md transition-colors duration-200 
+                                    ${user.isActive
+                                        ? 'bg-red-600 text-white hover:bg-red-700' // Active = Deactivate (Red)
+                                        : 'bg-green-600 text-white hover:bg-green-700' // Inactive = Activate (Green)
                                     }`}
                             >
                                 {user.isActive ? (
                                     <>
-                                        <ToggleRight className="h-4 w-4 mr-2" />
+                                        <ToggleRight className="h-5 w-5 mr-2" />
                                         Deactivate User
                                     </>
                                 ) : (
                                     <>
-                                        <ToggleLeft className="h-4 w-4 mr-2" />
+                                        <ToggleLeft className="h-5 w-5 mr-2" />
                                         Activate User
                                     </>
                                 )}
@@ -244,18 +322,15 @@ const UserEdit = () => {
                     </div>
                 </div>
 
-                {/* Current User Info */}
-                <div className="px-4 sm:px-0 mb-6">
-                    <div className="bg-white shadow rounded-lg p-6">
+                {/* Current User Info Card (Themed) */}
+                <div className="px-4 sm:px-0 mb-8">
+                    <div className="card shadow-lg rounded-xl p-6 border-l-4 border-red-500">
                         <div className="flex items-center space-x-6">
                             <div className="flex-shrink-0 relative">
-                                <div className="h-20 w-20 bg-blue-500 rounded-full flex items-center justify-center">
+                                <div className="h-20 w-20 bg-red-500 rounded-full flex items-center justify-center shadow-md">
                                     <span className="text-2xl font-bold text-white">
                                         {user.firstName.charAt(0)}{user.lastName.charAt(0)}
                                     </span>
-                                </div>
-                                <div className="absolute inset-0 bg-black bg-opacity-50 rounded-full flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity cursor-pointer">
-                                    <Camera className="h-6 w-6 text-white" />
                                 </div>
                             </div>
                             <div>
@@ -265,27 +340,25 @@ const UserEdit = () => {
                                 <p className="text-gray-600">{user.email}</p>
                                 <div className="flex items-center mt-2 space-x-4">
                                     {user.role && (
-                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">
                                             {user.role.name}
                                         </span>
                                     )}
                                     {user.position && (
-                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-200 text-gray-700">
                                             {user.position.title}
                                         </span>
                                     )}
-                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${user.isActive
-                                        ? 'bg-green-100 text-green-800'
-                                        : 'bg-red-100 text-red-800'
+                                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium 
+                                        ${user.isActive
+                                            ? 'bg-green-100 text-green-800'
+                                            : 'bg-red-100 text-red-800'
                                         }`}>
                                         {user.isActive ? 'Active' : 'Inactive'}
                                     </span>
                                 </div>
                                 <div className="mt-2 text-sm text-gray-500">
-                                    <p>Member since: {formatDate(user.createdAt)}</p>
-                                    {user.lastLogin && (
-                                        <p>Last login: {formatDate(user.lastLogin)}</p>
-                                    )}
+                                    <p>Member ID: {user.id} | Joined: {formatDate(user.createdAt)}</p>
                                 </div>
                             </div>
                         </div>
@@ -294,18 +367,20 @@ const UserEdit = () => {
 
                 {/* Edit Form */}
                 <div className="px-4 sm:px-0">
-                    <div className="bg-white shadow rounded-lg">
-                        <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-6">
-                            {/* Personal Information */}
+                    <div className="card shadow-lg rounded-xl p-8">
+                        <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+                            
+                            {/* Personal Information Section */}
                             <div>
-                                <h3 className="text-lg font-medium text-gray-900 mb-4">
+                                <h3 className="text-xl font-bold text-gray-900 mb-6 border-b border-red-100 pb-2">
                                     Personal Information
                                 </h3>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    
                                     {/* First Name */}
-                                    <div>
-                                        <label htmlFor="firstName" className="block text-sm font-medium text-gray-700">
-                                            First Name *
+                                    <div className="form-group">
+                                        <label htmlFor="firstName" className="form-label">
+                                            First Name <span className="text-red-600">*</span>
                                         </label>
                                         <div className="mt-1 relative">
                                             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -314,45 +389,40 @@ const UserEdit = () => {
                                             <input
                                                 {...register('firstName')}
                                                 type="text"
-                                                className={`
-                          block w-full px-3 py-2 pl-10 border 
-                          ${errors.firstName ? 'border-red-300' : 'border-gray-300'}
-                          rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm
-                        `}
+                                                className={`form-input pl-10 ${errors.firstName ? 'error' : ''}`}
                                                 placeholder="Enter first name"
                                             />
                                         </div>
                                         {errors.firstName && (
-                                            <p className="mt-1 text-sm text-red-600">{errors.firstName.message}</p>
+                                            <p className="error-message">{errors.firstName.message}</p>
                                         )}
                                     </div>
 
                                     {/* Last Name */}
-                                    <div>
-                                        <label htmlFor="lastName" className="block text-sm font-medium text-gray-700">
-                                            Last Name *
+                                    <div className="form-group">
+                                        <label htmlFor="lastName" className="form-label">
+                                            Last Name <span className="text-red-600">*</span>
                                         </label>
-                                        <div className="mt-1">
+                                        <div className="mt-1 relative">
+                                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                                <User className="h-5 w-5 text-gray-400" />
+                                            </div>
                                             <input
                                                 {...register('lastName')}
                                                 type="text"
-                                                className={`
-                          block w-full px-3 py-2 border 
-                          ${errors.lastName ? 'border-red-300' : 'border-gray-300'}
-                          rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm
-                        `}
+                                                className={`form-input pl-10 ${errors.lastName ? 'error' : ''}`}
                                                 placeholder="Enter last name"
                                             />
                                         </div>
                                         {errors.lastName && (
-                                            <p className="mt-1 text-sm text-red-600">{errors.lastName.message}</p>
+                                            <p className="error-message">{errors.lastName.message}</p>
                                         )}
                                     </div>
-
-                                    {/* Email */}
-                                    <div>
-                                        <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                                            Email Address *
+                                    
+                                    {/* Email (Readonly) */}
+                                    <div className="form-group">
+                                        <label htmlFor="email" className="form-label">
+                                            Email Address <span className="text-red-600">*</span>
                                         </label>
                                         <div className="mt-1 relative">
                                             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -361,22 +431,19 @@ const UserEdit = () => {
                                             <input
                                                 {...register('email')}
                                                 type="email"
-                                                className={`
-                          block w-full px-3 py-2 pl-10 border 
-                          ${errors.email ? 'border-red-300' : 'border-gray-300'}
-                          rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm
-                        `}
+                                                readOnly // Email is usually non-editable post-creation
+                                                className={`form-input pl-10 bg-gray-100 cursor-not-allowed ${errors.email ? 'error' : ''}`}
                                                 placeholder="Enter email address"
                                             />
                                         </div>
                                         {errors.email && (
-                                            <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
+                                            <p className="error-message">{errors.email.message}</p>
                                         )}
                                     </div>
-
+                                    
                                     {/* Phone */}
-                                    <div>
-                                        <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
+                                    <div className="form-group">
+                                        <label htmlFor="phone" className="form-label">
                                             Phone Number
                                         </label>
                                         <div className="mt-1 relative">
@@ -386,22 +453,18 @@ const UserEdit = () => {
                                             <input
                                                 {...register('phone')}
                                                 type="tel"
-                                                className={`
-                          block w-full px-3 py-2 pl-10 border 
-                          ${errors.phone ? 'border-red-300' : 'border-gray-300'}
-                          rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm
-                        `}
+                                                className={`form-input pl-10 ${errors.phone ? 'error' : ''}`}
                                                 placeholder="Enter phone number"
                                             />
                                         </div>
                                         {errors.phone && (
-                                            <p className="mt-1 text-sm text-red-600">{errors.phone.message}</p>
+                                            <p className="error-message">{errors.phone.message}</p>
                                         )}
                                     </div>
 
                                     {/* Date of Birth */}
-                                    <div>
-                                        <label htmlFor="dateOfBirth" className="block text-sm font-medium text-gray-700">
+                                    <div className="form-group">
+                                        <label htmlFor="dateOfBirth" className="form-label">
                                             Date of Birth
                                         </label>
                                         <div className="mt-1 relative">
@@ -411,22 +474,18 @@ const UserEdit = () => {
                                             <input
                                                 {...register('dateOfBirth')}
                                                 type="date"
-                                                className={`
-                          block w-full px-3 py-2 pl-10 border 
-                          ${errors.dateOfBirth ? 'border-red-300' : 'border-gray-300'}
-                          rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm
-                        `}
+                                                className={`form-input ${errors.dateOfBirth ? 'error' : ''}`}
                                             />
                                         </div>
                                         {errors.dateOfBirth && (
-                                            <p className="mt-1 text-sm text-red-600">{errors.dateOfBirth.message}</p>
+                                            <p className="error-message">{errors.dateOfBirth.message}</p>
                                         )}
                                     </div>
                                 </div>
-
+                                
                                 {/* Address */}
-                                <div className="mt-6">
-                                    <label htmlFor="address" className="block text-sm font-medium text-gray-700">
+                                <div className="form-group mt-6">
+                                    <label htmlFor="address" className="form-label">
                                         Address
                                     </label>
                                     <div className="mt-1 relative">
@@ -436,39 +495,35 @@ const UserEdit = () => {
                                         <textarea
                                             {...register('address')}
                                             rows={3}
-                                            className={`
-                        block w-full px-3 py-2 pl-10 border 
-                        ${errors.address ? 'border-red-300' : 'border-gray-300'}
-                        rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm
-                      `}
+                                            className={`form-input pl-10 ${errors.address ? 'error' : ''}`}
                                             placeholder="Enter full address"
                                         />
                                     </div>
                                     {errors.address && (
-                                        <p className="mt-1 text-sm text-red-600">{errors.address.message}</p>
+                                        <p className="error-message">{errors.address.message}</p>
                                     )}
                                 </div>
                             </div>
 
-                            {/* Role & Position */}
-                            <div className="border-t border-gray-200 pt-6">
-                                <h3 className="text-lg font-medium text-gray-900 mb-4">
+                            {/* Role & Position Section */}
+                            <div className="border-t border-red-300 pt-6">
+                                <h3 className="text-xl font-bold text-gray-900 mb-6 border-b border-red-100 pb-2">
                                     Role & Position Assignment
                                 </h3>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    
                                     {/* Role */}
-                                    <div>
-                                        <label htmlFor="roleId" className="block text-sm font-medium text-gray-700">
+                                    <div className="form-group">
+                                        <label htmlFor="roleId" className="form-label">
                                             Role
                                         </label>
-                                        <div className="mt-1">
+                                        <div className="mt-1 relative">
+                                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                                <Award className="h-5 w-5 text-gray-400" />
+                                            </div>
                                             <select
                                                 {...register('roleId')}
-                                                className={`
-                          block w-full px-3 py-2 border 
-                          ${errors.roleId ? 'border-red-300' : 'border-gray-300'}
-                          rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm
-                        `}
+                                                className={`form-input pl-10 ${errors.roleId ? 'error' : ''}`}
                                             >
                                                 <option value="">Select a role</option>
                                                 {roles.map((role) => (
@@ -479,23 +534,22 @@ const UserEdit = () => {
                                             </select>
                                         </div>
                                         {errors.roleId && (
-                                            <p className="mt-1 text-sm text-red-600">{errors.roleId.message}</p>
+                                            <p className="error-message">{errors.roleId.message}</p>
                                         )}
                                     </div>
 
                                     {/* Position */}
-                                    <div>
-                                        <label htmlFor="positionId" className="block text-sm font-medium text-gray-700">
+                                    <div className="form-group">
+                                        <label htmlFor="positionId" className="form-label">
                                             Position
                                         </label>
-                                        <div className="mt-1">
+                                        <div className="mt-1 relative">
+                                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                                <Briefcase className="h-5 w-5 text-gray-400" />
+                                            </div>
                                             <select
                                                 {...register('positionId')}
-                                                className={`
-                          block w-full px-3 py-2 border 
-                          ${errors.positionId ? 'border-red-300' : 'border-gray-300'}
-                          rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm
-                        `}
+                                                className={`form-input pl-10 ${errors.positionId ? 'error' : ''}`}
                                             >
                                                 <option value="">Select a position</option>
                                                 {positions.map((position) => (
@@ -506,7 +560,7 @@ const UserEdit = () => {
                                             </select>
                                         </div>
                                         {errors.positionId && (
-                                            <p className="mt-1 text-sm text-red-600">{errors.positionId.message}</p>
+                                            <p className="error-message">{errors.positionId.message}</p>
                                         )}
                                     </div>
                                 </div>
@@ -514,42 +568,50 @@ const UserEdit = () => {
 
                             {/* Error Message */}
                             {errors.root && (
-                                <div className="rounded-md bg-red-50 p-4">
-                                    <div className="text-sm text-red-700">{errors.root.message}</div>
+                                <div className="rounded-lg bg-red-50 p-4 border border-red-200">
+                                    <div className="text-sm font-medium text-red-700">{errors.root.message}</div>
                                 </div>
                             )}
 
                             {/* Submit Buttons */}
-                            <div className="border-t border-gray-200 pt-6">
-                                <div className="flex justify-end space-x-3">
-                                    <Link
-                                        to="/users"
-                                        className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                                    >
-                                        Cancel
-                                    </Link>
-                                    <button
-                                        type="submit"
-                                        disabled={isSubmitting}
-                                        className={`
-                      inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white 
-                      ${isSubmitting
-                                                ? 'bg-gray-400 cursor-not-allowed'
-                                                : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
-                                            }
-                    `}
-                                    >
+                            <div className="border-t border-red-300 pt-6 flex justify-end space-x-4">
+                                
+                                {/* Cancel Button */}
+                                <Link
+                                    to="#/users"
+                                    className="btn btn-secondary inline-flex items-center text-base"
+                                >
+                                    Cancel
+                                </Link>
+                                
+                                {/* Update Button */}
+                                <button
+                                    type="submit"
+                                    disabled={isSubmitting}
+                                    // Use btn-primary for red gradient theme
+                                    className={`btn btn-primary inline-flex items-center text-base ${isSubmitting ? 'opacity-60 cursor-not-allowed' : ''}`}
+                                >
+                                    {isSubmitting ? (
+                                        <div className="spinner mr-2"></div>
+                                    ) : (
                                         <Save className="h-4 w-4 mr-2" />
-                                        {isSubmitting ? 'Updating...' : 'Update User'}
-                                    </button>
-                                </div>
+                                    )}
+                                    {isSubmitting ? 'Updating...' : 'Update User'}
+                                </button>
                             </div>
                         </form>
                     </div>
                 </div>
             </div>
         </div>
-    );
+    ); 
 };
+
+// Wrap UserEditContent with HashRouter for local routing context compatibility
+const UserEdit = () => (
+    <HashRouter>
+        <UserEditContent />
+    </HashRouter>
+);
 
 export default UserEdit;
