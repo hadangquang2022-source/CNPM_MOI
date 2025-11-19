@@ -1,8 +1,8 @@
-import React from 'react';
-import { HashRouter, Link } from 'react-router-dom'; // Import HashRouter and Link from react-router-dom
-import { BarChart, Users, UserPlus, Activity, TrendingUp, Calendar, Clock, Award, ChevronUp, ChevronDown } from 'lucide-react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
+import { HashRouter, Link } from 'react-router-dom';
+import { Users, UserPlus, Activity, TrendingUp, Calendar, Award, ChevronUp, ChevronDown, Plus } from 'lucide-react';
 
-// Mocked useAuth for single-file runnable example
+// Mocked useAuth
 const useAuth = () => ({
     user: {
         firstName: 'Jane',
@@ -14,337 +14,173 @@ const useAuth = () => ({
     },
 });
 
-// A component wrapper is needed to wrap the content with HashRouter 
-// because we cannot modify the original component definition directly.
 const DashboardContent = () => {
     const { user } = useAuth();
 
+    const [products, setProducts] = useState([]);
+    const [page, setPage] = useState(1);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
+    const [hasMore, setHasMore] = useState(true);
+
+    const observer = useRef();
+
+    const lastProductRef = useCallback(node => {
+        if (loading) return;
+        if (observer.current) observer.current.disconnect();
+        observer.current = new IntersectionObserver(entries => {
+            if (entries[0].isIntersecting && hasMore) {
+                setPage(prev => prev + 1);
+            }
+        }, { threshold: 0.5 });
+        if (node) observer.current.observe(node);
+    }, [loading, hasMore]);
+
     const stats = [
-        {
-            id: 1,
-            name: 'Total Users',
-            value: '2,651',
-            change: '+4.75%',
-            changeType: 'increase',
-            icon: Users,
-            iconBg: 'bg-red-500', // Red Icon Background
-            iconColor: 'text-white'
-        },
-        {
-            id: 2,
-            name: 'Active Users',
-            value: '2,345',
-            change: '+54.02%',
-            changeType: 'increase',
-            icon: Activity,
-            iconBg: 'bg-orange-500', // Orange Icon Background
-            iconColor: 'text-white'
-        },
-        {
-            id: 3,
-            name: 'New Registrations',
-            value: '145',
-            change: '-1.39%',
-            changeType: 'decrease',
-            icon: UserPlus,
-            iconBg: 'bg-yellow-500', // Yellow Icon Background
-            iconColor: 'text-white'
-        },
-        {
-            id: 4,
-            name: 'Growth Rate',
-            value: '12.5%',
-            change: '+2.1%',
-            changeType: 'increase',
-            icon: TrendingUp,
-            iconBg: 'bg-green-500', // Green Icon Background
-            iconColor: 'text-white'
-        },
+        { id: 1, name: 'Total Users', value: '2,651', change: '+4.75%', changeType: 'increase', icon: Users, iconBg: 'bg-red-500' },
+        { id: 2, name: 'Active Users', value: '2,345', change: '+54.02%', changeType: 'increase', icon: Activity, iconBg: 'bg-orange-500' },
+        { id: 3, name: 'New Registrations', value: '145', change: '-1.39%', changeType: 'decrease', icon: UserPlus, iconBg: 'bg-yellow-500' },
+        { id: 4, name: 'Growth Rate', value: '12.5%', change: '+2.1%', changeType: 'increase', icon: TrendingUp, iconBg: 'bg-green-500' },
     ];
 
-    const recentActivities = [
-        {
-            id: 1,
-            type: 'user_registered',
-            message: 'New user John Doe registered',
-            time: '2 minutes ago',
-            icon: UserPlus,
-            color: 'text-red-600', // Updated to Red for new user highlight
-            bg: 'bg-red-50'
-        },
-        {
-            id: 2,
-            type: 'user_login',
-            message: 'Alice Smith logged in',
-            time: '5 minutes ago',
-            icon: Activity,
-            color: 'text-orange-600', // Secondary color
-            bg: 'bg-orange-50'
-        },
-        {
-            id: 3,
-            type: 'user_updated',
-            message: 'Bob Johnson updated profile',
-            time: '10 minutes ago',
-            icon: Users,
-            color: 'text-yellow-600',
-            bg: 'bg-yellow-50'
-        },
-        {
-            id: 4,
-            type: 'user_login',
-            message: 'Manager logged in',
-            time: '15 minutes ago',
-            icon: Activity,
-            color: 'text-orange-600',
-            bg: 'bg-orange-50'
-        },
-    ];
+    useEffect(() => {
+        const fetchProducts = async () => {
+            setLoading(true);
+            setError(null);
+            try {
+                const response = await fetch(`http://localhost:5000/products/all?page=${page}&limit=4`);
+                const result = await response.json();
+                if (result.data) {
+                    setProducts(prev => [...prev, ...result.data]);
+                    setHasMore(result.pagination.hasMore);
+                } else {
+                    setError('No products found');
+                }
+            } catch (err) {
+                setError('Failed to fetch products');
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchProducts();
+    }, [page]);
 
-    const StatItem = ({ item }) => {
+    const StatCard = ({ item }) => {
         const Icon = item.icon;
-        const ChangeIcon = item.changeType === 'increase' ? ChevronUp : ChevronUp; // Changed ChevronDown to ChevronUp as per visual preference
-        const changeTextColor = item.changeType === 'increase' ? 'text-green-600' : 'text-red-600';
-
+        const ChangeIcon = item.changeType === 'increase' ? ChevronUp : ChevronDown;
+        const changeColor = item.changeType === 'increase' ? 'text-green-600' : 'text-red-600';
         return (
-            <div className="card shadow-lg rounded-xl pt-5 px-4 pb-12 sm:pt-6 sm:px-6 overflow-hidden transition duration-300 hover:scale-[1.02] hover:shadow-xl">
-                <dt>
-                    {/* Icon container with a gradient effect for visibility */}
-                    <div className={`absolute rounded-full p-3 ${item.iconBg} shadow-md`}>
-                        <Icon className="h-6 w-6 text-white" aria-hidden="true" />
-                    </div>
-                    <p className="ml-16 text-sm font-medium text-gray-500 truncate">{item.name}</p>
-                </dt>
-                <dd className="ml-16 pb-6 flex items-baseline sm:pb-7">
-                    <p className="text-3xl font-extrabold text-gray-900">{item.value}</p>
-                    <p
-                        className={`ml-2 flex items-baseline text-sm font-semibold ${changeTextColor}`}
-                    >
-                        <ChangeIcon className="-ml-1 mr-0.5 h-5 w-5 flex-shrink-0 self-center" aria-hidden="true" />
+            <div className="relative bg-white rounded-xl shadow-lg p-6 hover:shadow-2xl transition-transform transform hover:-translate-y-1">
+                <div className={`absolute top-6 left-6 p-3 rounded-full ${item.iconBg}`}>
+                    <Icon className="h-6 w-6 text-white" />
+                </div>
+                <p className="ml-16 text-sm font-medium text-gray-500">{item.name}</p>
+                <div className="ml-16 mt-1 flex items-baseline">
+                    <p className="text-2xl font-bold text-gray-900">{item.value}</p>
+                    <p className={`ml-2 flex items-center text-sm font-semibold ${changeColor}`}>
+                        <ChangeIcon className="h-4 w-4 mr-1" />
                         {item.change}
                     </p>
-                </dd>
+                </div>
             </div>
         );
     };
 
+    const ProductCard = ({ product, refProp }) => {
+        let statusColor = 'bg-green-100 text-green-600';
+        if (product.stockQuantity === 0) statusColor = 'bg-red-100 text-red-600';
+        else if (product.stockQuantity < 50) statusColor = 'bg-yellow-100 text-yellow-600';
+
+        return (
+            <Link
+                ref={refProp}
+                to={`/products/${product.id}`}
+                className="card p-6 rounded-xl shadow-lg hover:shadow-2xl transform transition-all duration-500 ease-out opacity-0 translate-y-4 animate-fadeIn"
+            >
+                <h3 className="text-lg font-bold text-gray-900">{product.productName}</h3>
+                <p className="mt-1 text-sm text-gray-500">{product.description}</p>
+                <p className="mt-1 text-sm text-gray-500">Price: ${product.price}</p>
+                <p className="mt-1 text-sm text-gray-500">Stock: {product.stockQuantity}</p>
+                <span className={`inline-block mt-2 px-3 py-1 rounded-full text-xs font-semibold ${statusColor}`}>
+                    {product.stockQuantity === 0 ? 'Out of Stock' : product.stockQuantity < 50 ? 'Low Stock' : 'In Stock'}
+                </span>
+            </Link>
+        );
+    };
+
     return (
-        <div className="min-h-screen">
-            <div className="max-w-7xl mx-auto py-10 sm:px-6 lg:px-8">
+        <div className="min-h-screen bg-gray-50">
+            <div className="max-w-7xl mx-auto py-10 px-4 sm:px-6 lg:px-8">
+
                 {/* Header */}
-                <div className="px-4 py-6 sm:px-0">
-                    <div className="border-b border-red-300 pb-5 mb-8">
-                        <div className="flex items-center justify-between flex-wrap">
-                            <div>
-                                <h1 className="text-4xl font-extrabold leading-tight text-gray-900">
-                                    Welcome back, {user?.firstName}!
-                                </h1>
-                                <p className="mt-2 text-base text-gray-600">
-                                    Here's what's happening with your application today.
-                                </p>
-                            </div>
-                            <div className="flex items-center space-x-3 mt-4 sm:mt-0">
-                                <div className="flex items-center text-base font-medium text-red-600 bg-red-100 px-3 py-1 rounded-full shadow-sm">
-                                    <Calendar className="h-4 w-4 mr-2" />
-                                    {new Date().toLocaleDateString('en-US', {
-                                        weekday: 'long',
-                                        year: 'numeric',
-                                        month: 'long',
-                                        day: 'numeric'
-                                    })}
-                                </div>
-                            </div>
+                <div className="mb-10 flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-gray-200 pb-5">
+                    <div>
+                        <h1 className="text-4xl font-extrabold text-gray-900">Welcome back, {user.firstName}!</h1>
+                        <p className="mt-2 text-gray-600">Here's what's happening with your application today.</p>
+                    </div>
+                    <div className="mt-4 sm:mt-0 flex items-center space-x-3 text-red-600 bg-red-100 px-3 py-1 rounded-full shadow-sm">
+                        <Calendar className="h-4 w-4" />
+                        {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                    </div>
+                </div>
+
+                {/* User Info */}
+                <div className="mb-10 bg-gradient-to-r from-red-600 to-red-800 rounded-xl shadow-2xl p-6 flex items-center space-x-6 hover:scale-[1.01] transform transition duration-500">
+                    <div className="h-16 w-16 bg-red-400 rounded-full flex items-center justify-center shadow-inner border-2 border-white text-white font-bold text-xl">
+                        {user.firstName[0]}{user.lastName[0]}
+                    </div>
+                    <div>
+                        <h2 className="text-2xl font-bold text-white">{user.firstName} {user.lastName}</h2>
+                        <p className="text-red-200">{user.email}</p>
+                        <div className="mt-2 flex flex-wrap gap-2 items-center">
+                            {user.role && <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-white text-red-800 shadow-sm"><Award className="h-3 w-3 mr-1" />{user.role.name}</span>}
+                            {user.position && <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-500 text-white shadow-sm">{user.position.title}</span>}
+                            <Link to="/profile" className="ml-2 text-sm underline text-white">View Profile</Link>
                         </div>
                     </div>
                 </div>
 
-                {/* User Info Card (Themed Card) */}
-                <div className="px-4 sm:px-0 mb-10">
-                    {/* Updated to a striking red gradient card */}
-                    <div className="bg-gradient-to-r from-red-600 to-red-800 rounded-xl shadow-2xl p-8 transform transition duration-500 hover:scale-[1.01]">
-                        <div className="flex items-center">
-                            <div className="flex-shrink-0">
-                                {/* Avatar */}
-                                <div className="h-16 w-16 bg-red-400 border-2 border-white rounded-full flex items-center justify-center shadow-inner">
-                                    <span className="text-xl font-bold text-white">
-                                        {user?.firstName?.charAt(0)}{user?.lastName?.charAt(0)}
-                                    </span>
-                                </div>
-                            </div>
-                            <div className="ml-6">
-                                <h2 className="text-2xl font-bold text-white">
-                                    {user?.firstName} {user?.lastName}
-                                </h2>
-                                <p className="text-red-200">{user?.email}</p>
-                                <div className="flex items-center mt-2 space-x-4 flex-wrap">
-                                    {user?.role && (
-                                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-white text-red-800 shadow-sm">
-                                            <Award className="h-3 w-3 mr-1" />
-                                            {user.role.name}
-                                        </span>
-                                    )}
-                                    {user?.position && (
-                                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-500 text-white shadow-sm">
-                                            {user.position.title}
-                                        </span>
-                                    )}
-                                    {user?.lastLogin && (
-                                        <span className="text-red-100 text-sm flex items-center mt-1 sm:mt-0">
-                                            <Clock className="h-3 w-3 mr-1 opacity-75" />
-                                            Last login: {new Date(user.lastLogin).toLocaleDateString()}
-                                        </span>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Stats Grid */}
-                {(user?.role?.name === 'Admin' || user?.role?.name === 'Manager') && (
-                    <div className="px-4 sm:px-0 mb-10">
+                {/* Stats */}
+                {(user.role.name === 'Admin' || user.role.name === 'Manager') && (
+                    <div className="mb-10">
                         <h3 className="text-xl font-bold text-gray-900 mb-4">Performance Overview</h3>
-                        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-                            {stats.map((item) => (
-                                <StatItem key={item.id} item={item} />
-                            ))}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                            {stats.map(item => <StatCard key={item.id} item={item} />)}
                         </div>
                     </div>
                 )}
 
-                {/* Quick Actions */}
-                <div className="px-4 sm:px-0 mb-10">
-                    <h3 className="text-xl font-bold text-gray-900 mb-4">Quick Actions</h3>
-                    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                        {/* Action 1: View Profile - Themed Red */}
-                        <Link
-                            to="/profile"
-                            className="card relative group p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-red-500 rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1"
-                        >
-                            <div>
-                                <span className="rounded-xl inline-flex p-3 bg-red-100 text-red-600 ring-4 ring-white shadow-md">
-                                    <Users className="h-6 w-6" aria-hidden="true" />
-                                </span>
-                            </div>
-                            <div className="mt-4">
-                                <h3 className="text-lg font-bold text-gray-900">
-                                    <span className="absolute inset-0" aria-hidden="true" />
-                                    View Profile
-                                </h3>
-                                <p className="mt-2 text-sm text-gray-500">
-                                    Update your personal information and account settings.
-                                </p>
-                            </div>
+                {/* Products */}
+                <div className="mb-10">
+                    <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-xl font-bold text-gray-900">Products</h3>
+                        <Link to="/products/create" className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 shadow-sm">
+                            <Plus className="h-4 w-4 mr-2" /> Add Product
                         </Link>
-
-                        {/* Action 2: Manage Users - Themed Secondary (Orange) */}
-                        {user?.role?.name === 'Manager' || user?.role?.name === 'Admin' ? (
-                            <Link
-                                to="/users"
-                                className="card relative group p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-orange-500 rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1"
-                            >
-                                <div>
-                                    <span className="rounded-xl inline-flex p-3 bg-orange-100 text-orange-600 ring-4 ring-white shadow-md">
-                                        <Users className="h-6 w-6" aria-hidden="true" />
-                                    </span>
-                                </div>
-                                <div className="mt-4">
-                                    <h3 className="text-lg font-bold text-gray-900">
-                                        <span className="absolute inset-0" aria-hidden="true" />
-                                        Manage Users
-                                    </h3>
-                                    <p className="mt-2 text-sm text-gray-500">
-                                        View and manage user accounts and permissions.
-                                    </p>
-                                </div>
-                            </Link>
-                        ) : null}
-
-                        {/* Action 3: Create User - Themed Admin (Green) */}
-                        {user?.role?.name === 'Admin' ? (
-                            <Link
-                                to="/users/create"
-                                className="card relative group p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-green-500 rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1"
-                            >
-                                <div>
-                                    <span className="rounded-xl inline-flex p-3 bg-green-100 text-green-600 ring-4 ring-white shadow-md">
-                                        <UserPlus className="h-6 w-6" aria-hidden="true" />
-                                    </span>
-                                </div>
-                                <div className="mt-4">
-                                    <h3 className="text-lg font-bold text-gray-900">
-                                        <span className="absolute inset-0" aria-hidden="true" />
-                                        Create User
-                                    </h3>
-                                    <p className="mt-2 text-sm text-gray-500">
-                                        Add new users to the system with roles and permissions.
-                                    </p>
-                                </div>
-                            </Link>
-                        ) : null}
-                        
-                        {/* Action 4: View Reports - Themed Purple */}
-                        <div className="card relative group p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-purple-500 rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer">
-                            <div>
-                                <span className="rounded-xl inline-flex p-3 bg-purple-100 text-purple-600 ring-4 ring-white shadow-md">
-                                    <BarChart className="h-6 w-6" aria-hidden="true" />
-                                </span>
-                            </div>
-                            <div className="mt-4">
-                                <h3 className="text-lg font-bold text-gray-900">
-                                    View Reports
-                                </h3>
-                                <p className="mt-2 text-sm text-gray-500">
-                                    Access detailed analytics and system reports.
-                                </p>
-                            </div>
-                        </div>
                     </div>
+
+                    {products.length === 0 && loading && <p>Loading products...</p>}
+                    {error && <p className="text-red-600">{error}</p>}
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                        {products.map((product, index) => {
+                            if (products.length === index + 1) {
+                                return <ProductCard refProp={lastProductRef} key={product.id} product={product} />;
+                            } else {
+                                return <ProductCard key={product.id} product={product} />;
+                            }
+                        })}
+                    </div>
+
+                    {loading && <p className="mt-4 text-gray-500">Loading more products...</p>}
                 </div>
-
-                {/* Recent Activities */}
-                {(user?.role?.name === 'Admin' || user?.role?.name === 'Manager') && (
-                    <div className="px-4 sm:px-0">
-                        <h3 className="text-xl font-bold text-gray-900 mb-4">Recent Activities</h3>
-                        {/* Use the defined .card style for the activity list */}
-                        <div className="card shadow-lg rounded-xl overflow-hidden p-0"> 
-                            <div className="px-6 py-4 border-b border-red-100">
-                                <h4 className="text-base font-bold text-gray-900">System Activity Log</h4>
-                            </div>
-                            <ul role="list" className="divide-y divide-gray-100">
-                                {recentActivities.map((activity) => {
-                                    const Icon = activity.icon;
-                                    return (
-                                        <li key={activity.id} className={`px-6 py-4 transition-colors duration-150 hover:${activity.bg}`}>
-                                            <div className="flex items-center space-x-4">
-                                                <div className="flex-shrink-0">
-                                                    {/* Use icon color directly */}
-                                                    <Icon className={`h-6 w-6 ${activity.color}`} aria-hidden="true" />
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <p className="text-sm font-medium text-gray-900 truncate">
-                                                        {activity.message}
-                                                    </p>
-                                                    <p className="text-sm text-gray-500">{activity.time}</p>
-                                                </div>
-                                            </div>
-                                        </li>
-                                    );
-                                })}
-                            </ul>
-                        </div>
-                    </div>
-                )}
             </div>
         </div>
     );
 };
 
-// Wrap DashboardContent with HashRouter for local routing context compatibility
 const Dashboard = () => (
-    <HashRouter>
-        <DashboardContent />
-    </HashRouter>
+    <DashboardContent />
 );
 
 export default Dashboard;

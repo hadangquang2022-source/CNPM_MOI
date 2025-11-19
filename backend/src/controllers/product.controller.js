@@ -41,3 +41,32 @@ exports.getProductsByCategory = async (req, res) => {
         return res.status(500).json({ message: 'Server error', error });
     }
 };
+// Lấy tất cả sản phẩm (active) theo phân trang
+exports.getAllProducts = async (req, res) => {
+    try {
+        const { page = 1, limit = 10 } = req.query;  
+        const offset = (page - 1) * limit;
+
+        const { count, rows } = await Product.findAndCountAll({
+            where: { isActive: true },  // chỉ lấy sản phẩm active
+            limit: parseInt(limit),
+            offset,
+            order: [['createdAt', 'DESC']]
+        });
+
+        return res.json({
+            message: 'All products fetched successfully',
+            data: rows,
+            pagination: {
+                total: count,
+                currentPage: parseInt(page),
+                totalPages: Math.ceil(count / limit),
+                hasMore: offset + rows.length < count,
+            }
+        });
+
+    } catch (error) {
+        console.error('Get all products error:', error);
+        return res.status(500).json({ message: 'Server error', error });
+    }
+};

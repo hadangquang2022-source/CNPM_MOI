@@ -5,140 +5,109 @@ import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { Eye, EyeOff, Mail, Lock, LogIn } from 'lucide-react';
 
-// --- MOCKING EXTERNAL IMPORTS FOR SINGLE-FILE RUNNABLE ENVIRONMENT ---
+// --- MOCK AUTH ---
 const useAuth = () => {
     const [isLoading, setIsLoading] = useState(false);
-    
     const login = async (credentials) => {
         setIsLoading(true);
         await new Promise(resolve => setTimeout(resolve, 1500));
         setIsLoading(false);
-        
-        if (credentials.email.includes('admin') && credentials.password === 'admin123') {
-            return { success: true, message: 'Admin login successful' };
-        }
-        if (credentials.email.includes('manager') && credentials.password === 'manager123') {
-            return { success: true, message: 'Manager login successful' };
-        }
-        if (credentials.email.includes('alice') && credentials.password === 'alice123') {
-            return { success: true, message: 'Employee login successful' };
-        }
+
+        if (credentials.email.includes('admin') && credentials.password === 'admin123') return { success: true };
+        if (credentials.email.includes('manager') && credentials.password === 'manager123') return { success: true };
+        if (credentials.email.includes('alice') && credentials.password === 'alice123') return { success: true };
         return { success: false, message: 'Invalid email or password.' };
     };
-
     return { login, isLoading };
 };
-// --- END MOCKING ---
+// --- END MOCK ---
 
 const schema = yup.object({
-    email: yup
-        .string()
-        .email('Please enter a valid email')
-        .required('Email is required'),
-    password: yup
-        .string()
-        .min(6, 'Password must be at least 6 characters')
-        .required('Password is required'),
+    email: yup.string().email('Please enter a valid email').required('Email is required'),
+    password: yup.string().min(6, 'Password must be at least 6 characters').required('Password is required'),
 });
 
 const LoginContent = () => {
     const [showPassword, setShowPassword] = useState(false);
     const { login, isLoading } = useAuth();
-    // useNavigate needs HashRouter context
     const navigate = useNavigate();
 
-    const {
-        register,
-        handleSubmit,
-        formState: { errors },
-        setError,
-    } = useForm({
-        resolver: yupResolver(schema),
-    });
+    const { register, handleSubmit, formState: { errors }, setError } = useForm({ resolver: yupResolver(schema) });
 
     const onSubmit = async (data) => {
-        // Clear previous root errors
-        setError('root', { type: 'manual', message: '' }); 
-
+        setError('root', { type: 'manual', message: '' });
         const result = await login(data);
-
         if (result.success) {
-            // Navigate using hash path for single-file compatibility
-            navigate('#/dashboard');
+            navigate('/dashboard');
         } else {
-            setError('root', {
-                type: 'manual',
-                message: result.message || 'Login failed'
-            });
+            setError('root', { type: 'manual', message: result.message || 'Login failed' });
         }
     };
 
     return (
-        <div className="min-h-screen flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-            <div className="sm:mx-auto sm:w-full sm:max-w-md">
-                <div className="text-center">
-                    {/* Icon: Themed Red */}
-                    <LogIn className="mx-auto h-12 w-12 text-red-600" />
-                    <h2 className="mt-6 text-4xl font-extrabold text-gray-900">
-                        Sign in to your account
-                    </h2>
-                    <p className="mt-2 text-base text-gray-600">
-                        Or{' '}
-                        <Link
-                            to="#/register"
-                            // Themed Red Link
-                            className="font-medium text-red-600 hover:text-red-700 transition-colors"
-                        >
-                            create a new account
-                        </Link>
-                    </p>
+        <div className="min-h-screen flex flex-col lg:flex-row">
+            {/* Left Side - Illustration / Welcome */}
+            <div className="lg:w-1/2 bg-gradient-to-tr from-red-500 to-red-600 flex items-center justify-center p-12">
+                <div className="text-white text-center space-y-4">
+                    <h1 className="text-4xl font-bold">Welcome Back!</h1>
+                    <p className="text-lg">Sign in to access your dashboard and manage your tasks.</p>
+                    {/* Optional illustration */}
+                    <img
+                        src="https://source.unsplash.com/400x300/?technology,office"
+                        alt="Illustration"
+                        className="mx-auto mt-6 rounded-xl shadow-lg"
+                    />
                 </div>
             </div>
 
-            <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-                {/* Auth Card: Use custom card styling */}
-                <div className="card py-8 px-4 shadow-lg sm:rounded-xl sm:px-10">
-                    <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
-                        
-                        {/* Email Field */}
-                        <div className="form-group">
-                            <label htmlFor="email" className="form-label">
-                                Email address
-                            </label>
-                            <div className="mt-1 relative">
+            {/* Right Side - Login Form */}
+            <div className="lg:w-1/2 flex items-center justify-center p-12 bg-gray-50">
+                <div className="w-full max-w-md space-y-8 bg-white rounded-2xl shadow-xl p-8">
+                    <div className="text-center">
+                        <LogIn className="mx-auto h-14 w-14 text-red-600" />
+                        <h2 className="mt-4 text-3xl font-bold text-gray-900">Sign in to your account</h2>
+                        <p className="mt-2 text-sm text-gray-600">
+                            Or{' '}
+                            <Link to="/register" className="font-semibold text-red-600 hover:text-red-700 underline transition-colors">
+                                create a new account
+                            </Link>
+                        </p>
+                    </div>
+
+                    <form className="space-y-5" onSubmit={handleSubmit(onSubmit)}>
+                        {/* Email */}
+                        <div className="relative">
+                            <label className="block text-sm font-medium text-gray-700">Email</label>
+                            <div className="mt-1 relative rounded-md shadow-sm">
                                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                     <Mail className="h-5 w-5 text-gray-400" />
                                 </div>
                                 <input
                                     {...register('email')}
                                     type="email"
-                                    autoComplete="email"
-                                    // Use custom form-input and error classes
-                                    className={`form-input pl-10 ${errors.email ? 'error' : ''}`}
-                                    placeholder="Enter your email"
+                                    className={`w-full py-2 pl-10 pr-3 border rounded-lg focus:ring-red-500 focus:border-red-500 sm:text-sm ${
+                                        errors.email ? 'border-red-500' : 'border-gray-300'
+                                    }`}
+                                    placeholder="you@example.com"
                                 />
                             </div>
-                            {errors.email && (
-                                <p className="error-message">{errors.email.message}</p>
-                            )}
+                            {errors.email && <p className="mt-1 text-xs text-red-600">{errors.email.message}</p>}
                         </div>
 
-                        {/* Password Field */}
-                        <div className="form-group">
-                            <label htmlFor="password" className="form-label">
-                                Password
-                            </label>
-                            <div className="mt-1 relative">
+                        {/* Password */}
+                        <div className="relative">
+                            <label className="block text-sm font-medium text-gray-700">Password</label>
+                            <div className="mt-1 relative rounded-md shadow-sm">
                                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                     <Lock className="h-5 w-5 text-gray-400" />
                                 </div>
                                 <input
                                     {...register('password')}
                                     type={showPassword ? 'text' : 'password'}
-                                    autoComplete="current-password"
-                                    // Use custom form-input and error classes
-                                    className={`form-input pl-10 pr-10 ${errors.password ? 'error' : ''}`}
-                                    placeholder="Enter your password"
+                                    className={`w-full py-2 pl-10 pr-10 border rounded-lg focus:ring-red-500 focus:border-red-500 sm:text-sm ${
+                                        errors.password ? 'border-red-500' : 'border-gray-300'
+                                    }`}
+                                    placeholder="********"
                                 />
                                 <button
                                     type="button"
@@ -152,82 +121,43 @@ const LoginContent = () => {
                                     )}
                                 </button>
                             </div>
-                            {errors.password && (
-                                <p className="error-message">{errors.password.message}</p>
-                            )}
+                            {errors.password && <p className="mt-1 text-xs text-red-600">{errors.password.message}</p>}
                         </div>
 
-                        {/* Remember & Forgot Password */}
-                        <div className="flex items-center justify-between pt-2">
-                            <div className="flex items-center">
-                                {/* Checkbox: Themed Red */}
-                                <input
-                                    id="remember-me"
-                                    name="remember-me"
-                                    type="checkbox"
-                                    className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded"
-                                />
-                                <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-900">
-                                    Remember me
-                                </label>
-                            </div>
-
-                            <div className="text-sm">
-                                <Link
-                                    to="#/forgot-password"
-                                    // Themed Red Link
-                                    className="font-medium text-red-600 hover:text-red-700 transition-colors"
-                                >
-                                    Forgot your password?
-                                </Link>
-                            </div>
+                        {/* Remember & Forgot */}
+                        <div className="flex items-center justify-between text-sm">
+                            <label className="flex items-center space-x-2">
+                                <input type="checkbox" className="h-4 w-4 text-red-600 rounded focus:ring-red-500 border-gray-300" />
+                                <span className="text-gray-700">Remember me</span>
+                            </label>
+                            <Link to="/forgot-password" className="font-medium text-red-600 hover:text-red-700 underline transition-colors">
+                                Forgot password?
+                            </Link>
                         </div>
 
-                        {/* Error Message */}
+                        {/* Root Error */}
                         {errors.root && (
-                            <div className="rounded-lg bg-red-50 p-4 border border-red-200">
-                                <div className="text-sm font-medium text-red-700">{errors.root.message}</div>
+                            <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 text-sm">
+                                {errors.root.message}
                             </div>
                         )}
 
-                        {/* Submit Button */}
-                        <div className="pt-2">
-                            <button
-                                type="submit"
-                                disabled={isLoading}
-                                // Use btn-primary for red gradient/shadow
-                                className={`btn btn-primary w-full text-base ${isLoading ? 'opacity-60 cursor-not-allowed' : ''}`}
-                            >
-                                {isLoading ? (
-                                    <div className="spinner mr-2"></div>
-                                ) : (
-                                    <LogIn className="h-5 w-5 mr-2 text-white" />
-                                )}
-                                {isLoading ? 'Signing in...' : 'Sign in'}
-                            </button>
-                        </div>
+                        {/* Submit */}
+                        <button
+                            type="submit"
+                            disabled={isLoading}
+                            className={`w-full py-2 px-4 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-semibold rounded-xl shadow-md focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-opacity-50 transition-all ${
+                                isLoading ? 'opacity-60 cursor-not-allowed' : ''
+                            }`}
+                        >
+                            {isLoading ? 'Signing in...' : 'Sign In'}
+                        </button>
                     </form>
-
-                    {/* Test Credentials */}
-                    <div className="mt-6 border-t border-red-100 pt-6">
-                        <div className="text-sm text-gray-600">
-                            <p className="font-semibold mb-2">Test Credentials (Email / Password):</p>
-                            <div className="space-y-1 text-xs">
-                                <p><strong>Admin:</strong> admin@example.com / admin123</p>
-                                <p><strong>Manager:</strong> manager@example.com / manager123</p>
-                                <p><strong>Employee:</strong> alice@example.com / alice123</p>
-                            </div>
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>
     );
 };
 
-// Wrap LoginContent with HashRouter for local routing context compatibility
-const Login = () => (
-        <LoginContent />
-);
-
+const Login = () => <LoginContent />;
 export default Login;

@@ -1,427 +1,220 @@
 import React, { useState, useEffect } from 'react';
-import { HashRouter, Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
-import { Eye, EyeOff, Mail, Lock, User, Phone, MapPin, Calendar, UserPlus, Briefcase, Shield, LogIn } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, User, Phone, MapPin, UserPlus, Briefcase, Shield } from 'lucide-react';
 
-// --- MOCKING EXTERNAL IMPORTS FOR SINGLE-FILE RUNNABLE ENVIRONMENT ---
+// --- MOCK AUTH ---
 const useAuth = () => {
-    const [isLoading, setIsLoading] = useState(false);
-    
-    const registerUser = async (userData) => {
-        setIsLoading(true);
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        setIsLoading(false);
-        
-        if (userData.email.includes('exists')) {
-            return { success: false, message: 'User with this email already exists.' };
-        }
-        return { success: true, message: 'Registration successful!' };
-    };
+  const [isLoading, setIsLoading] = useState(false);
+  const registerUser = async (userData) => {
+    setIsLoading(true);
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    setIsLoading(false);
 
-    return { register: registerUser, isLoading };
+    if (userData.email.includes('exists')) {
+      return { success: false, message: 'User with this email already exists.' };
+    }
+    return { success: true, message: 'Registration successful!' };
+  };
+  return { register: registerUser, isLoading };
 };
 
 const userAPI = {
-    getRoles: async () => ({
-        data: {
-            success: true,
-            data: {
-                roles: [{ id: 1, name: 'Admin' }, { id: 2, name: 'Manager' }, { id: 3, name: 'Staff' }],
-            },
-        },
-    }),
-    getPositions: async () => ({
-        data: {
-            success: true,
-            data: {
-                positions: [
-                    { id: 101, title: 'Engineer', department: 'Tech' },
-                    { id: 102, title: 'Analyst', department: 'Finance' },
-                    { id: 103, title: 'HR Partner', department: 'HR' },
-                ],
-            },
-        },
-    }),
+  getRoles: async () => ({
+    data: {
+      success: true,
+      data: { roles: [{ id: 1, name: 'Admin' }, { id: 2, name: 'Manager' }, { id: 3, name: 'Staff' }] },
+    },
+  }),
+  getPositions: async () => ({
+    data: {
+      success: true,
+      data: {
+        positions: [
+          { id: 101, title: 'Engineer', department: 'Tech' },
+          { id: 102, title: 'Analyst', department: 'Finance' },
+          { id: 103, title: 'HR Partner', department: 'HR' },
+        ],
+      },
+    },
+  }),
 };
-// --- END MOCKING ---
 
+// --- Validation schema ---
 const schema = yup.object({
-    firstName: yup
-        .string()
-        .min(2, 'First name must be at least 2 characters')
-        .max(50, 'First name must not exceed 50 characters')
-        .required('First name is required'),
-    lastName: yup
-        .string()
-        .min(2, 'Last name must be at least 2 characters')
-        .max(50, 'Last name must not exceed 50 characters')
-        .required('Last name is required'),
-    email: yup
-        .string()
-        .email('Please enter a valid email')
-        .required('Email is required'),
-    password: yup
-        .string()
-        .min(6, 'Password must be at least 6 characters')
-        .required('Password is required'),
-    confirmPassword: yup
-        .string()
-        .oneOf([yup.ref('password'), null], 'Passwords must match')
-        .required('Please confirm your password'),
-    // Ensure transformations for optional fields
-    phone: yup
-        .string()
-        .matches(/^[0-9+\-\s()]*$/, 'Invalid phone number format')
-        .optional()
-        .nullable()
-        .transform((curr, orig) => orig === '' ? null : curr),
-    address: yup.string().optional().nullable().transform((curr, orig) => orig === '' ? null : curr),
-    dateOfBirth: yup.date().max(new Date(), 'Date of birth cannot be in the future').optional().nullable().transform((curr, orig) => orig === '' ? null : curr),
-    roleId: yup.number().typeError('Role must be a number').optional().nullable().transform((curr, orig) => orig === '' ? null : curr),
-    positionId: yup.number().typeError('Position must be a number').optional().nullable().transform((curr, orig) => orig === '' ? null : curr),
+  firstName: yup.string().min(2).max(50).required(),
+  lastName: yup.string().min(2).max(50).required(),
+  email: yup.string().email().required(),
+  password: yup.string().min(6).required(),
+  confirmPassword: yup.string().oneOf([yup.ref('password'), null]).required(),
+  phone: yup.string().matches(/^[0-9+\-\s()]*$/).optional().nullable(),
+  address: yup.string().optional().nullable(),
+  dateOfBirth: yup.date().max(new Date()).optional().nullable(),
+  roleId: yup.number().optional().nullable(),
+  positionId: yup.number().optional().nullable(),
 });
 
 const RegisterContent = () => {
-    const [showPassword, setShowPassword] = useState(false);
-    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-    const [roles, setRoles] = useState([]);
-    const [positions, setPositions] = useState([]);
-    const { register: registerUser, isLoading } = useAuth();
-    // useNavigate needs HashRouter context
-    const navigate = useNavigate();
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [roles, setRoles] = useState([]);
+  const [positions, setPositions] = useState([]);
+  const { register: registerUser, isLoading } = useAuth();
+  const navigate = useNavigate();
 
-    const {
-        register,
-        handleSubmit,
-        formState: { errors },
-        setError,
-    } = useForm({
-        resolver: yupResolver(schema),
-        defaultValues: {
-            roleId: '',
-            positionId: '',
-            dateOfBirth: '',
-        }
-    });
+  const { register, handleSubmit, formState: { errors }, setError } = useForm({
+    resolver: yupResolver(schema),
+    defaultValues: { roleId: '', positionId: '', dateOfBirth: '' }
+  });
 
-    useEffect(() => {
-        fetchRoles();
-        fetchPositions();
-    }, []);
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const rolesRes = await userAPI.getRoles();
+        if (rolesRes.data.success) setRoles(rolesRes.data.data.roles);
 
-    const fetchRoles = async () => {
-        try {
-            const response = await userAPI.getRoles();
-            if (response.data.success) {
-                setRoles(response.data.data.roles);
-            }
-        } catch (error) {
-            console.error('Error fetching roles:', error);
-        }
+        const positionsRes = await userAPI.getPositions();
+        if (positionsRes.data.success) setPositions(positionsRes.data.data.positions);
+      } catch (e) { console.error(e); }
     };
+    fetchData();
+  }, []);
 
-    const fetchPositions = async () => {
-        try {
-            const response = await userAPI.getPositions();
-            if (response.data.success) {
-                setPositions(response.data.data.positions);
-            }
-        } catch (error) {
-            console.error('Error fetching positions:', error);
-        }
+  const onSubmit = async (data) => {
+    setError('root', { type: 'manual', message: '' });
+    const userDataToSend = {
+      ...data,
+      phone: data.phone || null,
+      address: data.address || null,
+      dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth).toISOString().split('T')[0] : null,
+      roleId: data.roleId ? parseInt(data.roleId) : null,
+      positionId: data.positionId ? parseInt(data.positionId) : null,
     };
+    const { confirmPassword, ...finalData } = userDataToSend;
+    const result = await registerUser(finalData);
+    if (result.success) navigate('/dashboard');
+    else setError('root', { type: 'manual', message: result.message || 'Registration failed' });
+  };
 
-    const onSubmit = async (data) => {
-        // Clear previous root errors
-        setError('root', { type: 'manual', message: '' }); 
-        
-        // Ensure data transformation for optional fields matches schema expectations
-        const userDataToSend = {
-            ...data,
-            phone: data.phone || null,
-            address: data.address || null,
-            dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth).toISOString().split('T')[0] : null,
-            roleId: data.roleId ? parseInt(data.roleId) : null,
-            positionId: data.positionId ? parseInt(data.positionId) : null,
-        };
-        
-        // Destructure confirmPassword out before sending to Auth API
-        const { confirmPassword, ...finalData } = userDataToSend;
-
-        const result = await registerUser(finalData);
-
-        if (result.success) {
-            // Navigate using hash path for single-file compatibility
-            navigate('#/dashboard');
-        } else {
-            setError('root', {
-                type: 'manual',
-                message: result.message || 'Registration failed'
-            });
-        }
-    };
-
-    return (
-        <div className="min-h-screen flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-            <div className="sm:mx-auto sm:w-full sm:max-w-xl"> {/* Increased max-w for larger form */}
-                <div className="text-center">
-                    {/* Icon: Themed Red */}
-                    <UserPlus className="mx-auto h-12 w-12 text-red-600" />
-                    <h2 className="mt-6 text-4xl font-extrabold text-gray-900">
-                        Create your account
-                    </h2>
-                    <p className="mt-2 text-base text-gray-600">
-                        Already have an account?{' '}
-                        <Link
-                            to="#/login"
-                            // Themed Red Link
-                            className="font-medium text-red-600 hover:text-red-700 transition-colors"
-                        >
-                            Sign in here
-                        </Link>
-                    </p>
-                </div>
-            </div>
-
-            <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-xl">
-                {/* Auth Card: Use custom card styling */}
-                <div className="card py-8 px-4 shadow-lg sm:rounded-xl sm:px-10">
-                    <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
-                        
-                        {/* --- Required Fields: Personal Info & Passwords --- */}
-                        <div className="space-y-6">
-                            <h3 className="text-xl font-bold text-gray-900 border-b border-red-100 pb-2">Account Details</h3>
-
-                            {/* Name Fields */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div className="form-group">
-                                    <label htmlFor="firstName" className="form-label">First Name</label>
-                                    <div className="mt-1 relative">
-                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                            <User className="h-5 w-5 text-gray-400" />
-                                        </div>
-                                        <input
-                                            {...register('firstName')}
-                                            type="text"
-                                            autoComplete="given-name"
-                                            className={`form-input pl-10 ${errors.firstName ? 'error' : ''}`}
-                                            placeholder="First name"
-                                        />
-                                        {errors.firstName && (<p className="error-message">{errors.firstName.message}</p>)}
-                                    </div>
-                                </div>
-                                <div className="form-group">
-                                    <label htmlFor="lastName" className="form-label">Last Name</label>
-                                    <div className="mt-1">
-                                        <input
-                                            {...register('lastName')}
-                                            type="text"
-                                            autoComplete="family-name"
-                                            className={`form-input ${errors.lastName ? 'error' : ''}`}
-                                            placeholder="Last name"
-                                        />
-                                        {errors.lastName && (<p className="error-message">{errors.lastName.message}</p>)}
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            {/* Email Field */}
-                            <div className="form-group">
-                                <label htmlFor="email" className="form-label">Email address</label>
-                                <div className="mt-1 relative">
-                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                        <Mail className="h-5 w-5 text-gray-400" />
-                                    </div>
-                                    <input
-                                        {...register('email')}
-                                        type="email"
-                                        autoComplete="email"
-                                        className={`form-input pl-10 ${errors.email ? 'error' : ''}`}
-                                        placeholder="Enter your email"
-                                    />
-                                    {errors.email && (<p className="error-message">{errors.email.message}</p>)}
-                                </div>
-                            </div>
-
-                            {/* Password Fields */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div className="form-group">
-                                    <label htmlFor="password" className="form-label">Password</label>
-                                    <div className="mt-1 relative">
-                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                            <Lock className="h-5 w-5 text-gray-400" />
-                                        </div>
-                                        <input
-                                            {...register('password')}
-                                            type={showPassword ? 'text' : 'password'}
-                                            autoComplete="new-password"
-                                            className={`form-input pl-10 pr-10 ${errors.password ? 'error' : ''}`}
-                                            placeholder="Enter password"
-                                        />
-                                        <button
-                                            type="button"
-                                            className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                                            onClick={() => setShowPassword(!showPassword)}
-                                        >
-                                            {showPassword ? (<EyeOff className="h-5 w-5 text-gray-400 hover:text-gray-500" />) : (<Eye className="h-5 w-5 text-gray-400 hover:text-gray-500" />)}
-                                        </button>
-                                        {errors.password && (<p className="error-message">{errors.password.message}</p>)}
-                                    </div>
-                                </div>
-
-                                <div className="form-group">
-                                    <label htmlFor="confirmPassword" className="form-label">Confirm Password</label>
-                                    <div className="mt-1 relative">
-                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                            <Lock className="h-5 w-5 text-gray-400" />
-                                        </div>
-                                        <input
-                                            {...register('confirmPassword')}
-                                            type={showConfirmPassword ? 'text' : 'password'}
-                                            autoComplete="new-password"
-                                            className={`form-input pl-10 pr-10 ${errors.confirmPassword ? 'error' : ''}`}
-                                            placeholder="Confirm password"
-                                        />
-                                        <button
-                                            type="button"
-                                            className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                                        >
-                                            {showConfirmPassword ? (<EyeOff className="h-5 w-5 text-gray-400 hover:text-gray-500" />) : (<Eye className="h-5 w-5 text-gray-400 hover:text-gray-500" />)}
-                                        </button>
-                                        {errors.confirmPassword && (<p className="error-message">{errors.confirmPassword.message}</p>)}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* --- Optional Fields: Contact and Role --- */}
-                        <div className="space-y-6 pt-6 border-t border-red-300">
-                            <h3 className="text-xl font-bold text-gray-900 border-b border-red-100 pb-2">Optional Details</h3>
-
-                            {/* Phone & Date of Birth */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div className="form-group">
-                                    <label htmlFor="phone" className="form-label">Phone Number</label>
-                                    <div className="mt-1 relative">
-                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                            <Phone className="h-5 w-5 text-gray-400" />
-                                        </div>
-                                        <input
-                                            {...register('phone')}
-                                            type="tel"
-                                            autoComplete="tel"
-                                            className={`form-input pl-10 ${errors.phone ? 'error' : ''}`}
-                                            placeholder="Phone number"
-                                        />
-                                        {errors.phone && (<p className="error-message">{errors.phone.message}</p>)}
-                                    </div>
-                                </div>
-                                <div className="form-group">
-                                    <label htmlFor="dateOfBirth" className="form-label">Date of Birth</label>
-                                    <div className="mt-1 relative">
-                                        <input
-                                            {...register('dateOfBirth')}
-                                            type="date"
-                                            className={`form-input ${errors.dateOfBirth ? 'error' : ''}`}
-                                        />
-                                        {errors.dateOfBirth && (<p className="error-message">{errors.dateOfBirth.message}</p>)}
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Address */}
-                            <div className="form-group">
-                                <label htmlFor="address" className="form-label">Address</label>
-                                <div className="mt-1 relative">
-                                    <div className="absolute top-3 left-3 pointer-events-none">
-                                        <MapPin className="h-5 w-5 text-gray-400" />
-                                    </div>
-                                    <textarea
-                                        {...register('address')}
-                                        rows={3}
-                                        className={`form-input pl-10 ${errors.address ? 'error' : ''}`}
-                                        placeholder="Enter your address"
-                                    />
-                                    {errors.address && (<p className="error-message">{errors.address.message}</p>)}
-                                </div>
-                            </div>
-
-                            {/* Role and Position Selects */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div className="form-group">
-                                    <label htmlFor="roleId" className="form-label">Role</label>
-                                    <div className="mt-1 relative">
-                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                            <Shield className="h-5 w-5 text-gray-400" />
-                                        </div>
-                                        <select
-                                            {...register('roleId')}
-                                            className={`form-input pl-10 ${errors.roleId ? 'error' : ''}`}
-                                        >
-                                            <option value="">Select a role</option>
-                                            {roles.map((role) => (<option key={role.id} value={role.id}>{role.name}</option>))}
-                                        </select>
-                                        {errors.roleId && (<p className="error-message">{errors.roleId.message}</p>)}
-                                    </div>
-                                </div>
-                                
-                                <div className="form-group">
-                                    <label htmlFor="positionId" className="form-label">Position</label>
-                                    <div className="mt-1 relative">
-                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                            <Briefcase className="h-5 w-5 text-gray-400" />
-                                        </div>
-                                        <select
-                                            {...register('positionId')}
-                                            className={`form-input pl-10 ${errors.positionId ? 'error' : ''}`}
-                                        >
-                                            <option value="">Select a position</option>
-                                            {positions.map((position) => (<option key={position.id} value={position.id}>{position.title} - {position.department}</option>))}
-                                        </select>
-                                        {errors.positionId && (<p className="error-message">{errors.positionId.message}</p>)}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Error Message */}
-                        {errors.root && (
-                            <div className="rounded-lg bg-red-50 p-4 border border-red-200">
-                                <div className="text-sm font-medium text-red-700">{errors.root.message}</div>
-                            </div>
-                        )}
-
-                        {/* Submit Button */}
-                        <div className="pt-2">
-                            <button
-                                type="submit"
-                                disabled={isLoading}
-                                // Use btn-primary for red gradient/shadow
-                                className={`btn btn-primary w-full text-base ${isLoading ? 'opacity-60 cursor-not-allowed' : ''}`}
-                            >
-                                {isLoading ? (
-                                    <div className="spinner mr-2"></div>
-                                ) : (
-                                    <UserPlus className="h-5 w-5 mr-2 text-white" />
-                                )}
-                                {isLoading ? 'Creating account...' : 'Create Account'}
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
+  return (
+    <div className="min-h-screen flex flex-col lg:flex-row bg-gray-50">
+      
+      {/* Left Illustration */}
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-tr from-red-500 to-red-600 items-center justify-center p-12">
+        <div className="text-white text-center space-y-4">
+          <h2 className="text-4xl font-bold">Welcome!</h2>
+          <p className="text-lg">Join us and manage your tasks efficiently.</p>
+          <img src="https://source.unsplash.com/300x300/?office,team" alt="Illustration" className="mt-6 rounded-xl shadow-lg"/>
         </div>
-    );
+      </div>
+
+      {/* Right Form */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-12">
+        <div className="w-full max-w-lg bg-white shadow-2xl rounded-2xl p-8 space-y-6">
+          
+          {/* Header */}
+          <div className="text-center space-y-2">
+            <UserPlus className="mx-auto h-12 w-12 text-red-600" />
+            <h2 className="text-3xl font-bold text-gray-900">Create your account</h2>
+            <p className="text-sm text-gray-600">
+              Already have an account?{' '}
+              <Link to="/login" className="text-red-600 font-medium hover:text-red-700 underline">
+                Sign in
+              </Link>
+            </p>
+          </div>
+
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+
+            {/* Account Details */}
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="relative">
+                  <input {...register('firstName')} type="text" placeholder="First Name" className={`w-full border rounded-lg py-2 pl-10 focus:ring-red-500 focus:border-red-500 ${errors.firstName ? 'border-red-500' : 'border-gray-300'}`} />
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-5 w-5"/>
+                  {errors.firstName && <p className="text-red-600 text-xs mt-1">{errors.firstName.message}</p>}
+                </div>
+                <div className="relative">
+                  <input {...register('lastName')} type="text" placeholder="Last Name" className={`w-full border rounded-lg py-2 pl-10 focus:ring-red-500 focus:border-red-500 ${errors.lastName ? 'border-red-500' : 'border-gray-300'}`} />
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-5 w-5"/>
+                  {errors.lastName && <p className="text-red-600 text-xs mt-1">{errors.lastName.message}</p>}
+                </div>
+              </div>
+
+              <div className="relative">
+                <input {...register('email')} type="email" placeholder="Email" className={`w-full border rounded-lg py-2 pl-10 focus:ring-red-500 focus:border-red-500 ${errors.email ? 'border-red-500' : 'border-gray-300'}`} />
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-5 w-5"/>
+                {errors.email && <p className="text-red-600 text-xs mt-1">{errors.email.message}</p>}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="relative">
+                  <input {...register('password')} type={showPassword ? 'text' : 'password'} placeholder="Password" className={`w-full border rounded-lg py-2 pl-10 pr-10 focus:ring-red-500 focus:border-red-500 ${errors.password ? 'border-red-500' : 'border-gray-300'}`} />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-5 w-5"/>
+                  <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2" onClick={() => setShowPassword(!showPassword)}>
+                    {showPassword ? <EyeOff className="h-5 w-5 text-gray-400"/> : <Eye className="h-5 w-5 text-gray-400"/>}
+                  </button>
+                  {errors.password && <p className="text-red-600 text-xs mt-1">{errors.password.message}</p>}
+                </div>
+
+                <div className="relative">
+                  <input {...register('confirmPassword')} type={showConfirmPassword ? 'text' : 'password'} placeholder="Confirm Password" className={`w-full border rounded-lg py-2 pl-10 pr-10 focus:ring-red-500 focus:border-red-500 ${errors.confirmPassword ? 'border-red-500' : 'border-gray-300'}`} />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-5 w-5"/>
+                  <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>
+                    {showConfirmPassword ? <EyeOff className="h-5 w-5 text-gray-400"/> : <Eye className="h-5 w-5 text-gray-400"/>}
+                  </button>
+                  {errors.confirmPassword && <p className="text-red-600 text-xs mt-1">{errors.confirmPassword.message}</p>}
+                </div>
+              </div>
+            </div>
+
+            {/* Optional Details */}
+            <div className="space-y-4 pt-4 border-t border-gray-200">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="relative">
+                  <input {...register('phone')} type="tel" placeholder="Phone" className={`w-full border rounded-lg py-2 pl-10 focus:ring-red-500 focus:border-red-500 ${errors.phone ? 'border-red-500' : 'border-gray-300'}`} />
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-5 w-5"/>
+                  {errors.phone && <p className="text-red-600 text-xs mt-1">{errors.phone.message}</p>}
+                </div>
+                <input {...register('dateOfBirth')} type="date" className={`w-full border rounded-lg py-2 focus:ring-red-500 focus:border-red-500 ${errors.dateOfBirth ? 'border-red-500' : 'border-gray-300'}`} />
+              </div>
+
+              <div className="relative">
+                <textarea {...register('address')} rows={3} placeholder="Address" className={`w-full border rounded-lg py-2 pl-10 focus:ring-red-500 focus:border-red-500 ${errors.address ? 'border-red-500' : 'border-gray-300'}`} />
+                <MapPin className="absolute left-3 top-3 text-gray-400 h-5 w-5"/>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="relative">
+                  <select {...register('roleId')} className={`w-full border rounded-lg py-2 pl-10 focus:ring-red-500 focus:border-red-500 ${errors.roleId ? 'border-red-500' : 'border-gray-300'}`}>
+                    <option value="">Select Role</option>
+                    {roles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                  </select>
+                  <Shield className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-5 w-5"/>
+                </div>
+                <div className="relative">
+                  <select {...register('positionId')} className={`w-full border rounded-lg py-2 pl-10 focus:ring-red-500 focus:border-red-500 ${errors.positionId ? 'border-red-500' : 'border-gray-300'}`}>
+                    <option value="">Select Position</option>
+                    {positions.map(p => <option key={p.id} value={p.id}>{p.title} - {p.department}</option>)}
+                  </select>
+                  <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-5 w-5"/>
+                </div>
+              </div>
+            </div>
+
+            {errors.root && <p className="text-red-600 text-sm mt-2">{errors.root.message}</p>}
+
+            <button type="submit" disabled={isLoading} className={`w-full py-2 px-4 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-semibold rounded-xl shadow-md transition-all ${isLoading ? 'opacity-60 cursor-not-allowed' : ''}`}>
+              {isLoading ? 'Creating Account...' : 'Create Account'}
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
 };
 
-// Wrap RegisterContent with HashRouter for local routing context compatibility
-const Register = () => (
-    <HashRouter>
-        <RegisterContent />
-    </HashRouter>
-);
-
+const Register = () => <RegisterContent />;
 export default Register;

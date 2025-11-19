@@ -262,7 +262,7 @@ const UserListContent = () => {
                         </div>
                         {isUserAdmin && (
                             <Link
-                                to="#/users/create"
+                                to="/users/create"
                                 // Use btn-primary for Create button
                                 className="btn btn-primary inline-flex items-center text-base"
                             >
@@ -458,7 +458,7 @@ const UserListContent = () => {
                                                         {(isUserAdmin || isUserManager) && (
                                                             <>
                                                                 <Link
-                                                                    to={`#/users/edit/${user.id}`}
+                                                                    to={`/users/edit/${user.id}`}
                                                                     className="text-orange-500 hover:text-orange-700 transition-colors" // Use orange for edit
                                                                     title="Edit user"
                                                                 >

@@ -1,8 +1,11 @@
 const express = require('express');
 const router = express.Router();
-const ProductController = require('../controllers/product.controller');
+const productController = require('../controllers/product.controller');
 
-// Lazy loading / pagination
-router.get('/category/:category?', ProductController.getProductsByCategory);
+// API phân trang theo category
+router.get('/category/:category', productController.getProductsByCategory);
+
+// API lấy tất cả sản phẩm (active) phân trang
+router.get('/all', productController.getAllProducts);
 
 module.exports = router;

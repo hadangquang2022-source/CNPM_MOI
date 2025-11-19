@@ -156,12 +156,12 @@ const UserEditContent = () => {
                 });
             } else {
                 toast.error('Failed to fetch user data');
-                navigate('#/users');
+                navigate('/users');
             }
         } catch (error) {
             console.error('Error fetching user:', error);
             toast.error('Failed to fetch user data');
-            navigate('#/users');
+            navigate('/users');
         } finally {
             setLoading(false);
         }
@@ -210,7 +210,7 @@ const UserEditContent = () => {
 
             if (response.data.success) {
                 toast.success('User updated successfully!');
-                navigate('#/users');
+                navigate('/users');
             } else {
                 setError('root', {
                     type: 'manual',
@@ -263,7 +263,7 @@ const UserEditContent = () => {
             <div className="min-h-screen flex justify-center items-center">
                 <div className="card shadow-lg p-10 text-center rounded-xl">
                     <h2 className="text-2xl font-bold text-red-600 mb-4">User Not Found</h2>
-                    <Link to="#/users" className="text-red-600 hover:text-red-700 font-semibold transition-colors duration-200">
+                    <Link to="/users" className="text-red-600 hover:text-red-700 font-semibold transition-colors duration-200">
                         Return to users list
                     </Link>
                 </div>
@@ -278,7 +278,7 @@ const UserEditContent = () => {
                 <div className="px-4 py-6 sm:px-0 mb-6">
                     <div className="flex items-center">
                         <Link
-                            to="#/users"
+                            to="/users"
                             // Apply red theme to back link
                             className="inline-flex items-center text-base font-semibold text-red-600 hover:text-red-800 transition-colors duration-200"
                         >
@@ -578,7 +578,7 @@ const UserEditContent = () => {
                                 
                                 {/* Cancel Button */}
                                 <Link
-                                    to="#/users"
+                                    to="/users"
                                     className="btn btn-secondary inline-flex items-center text-base"
                                 >
                                     Cancel

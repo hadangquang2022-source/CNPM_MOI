@@ -139,7 +139,7 @@ const UserCreateContent = () => {
             if (response.data.success) {
                 toast.success('User created successfully!');
                 // Use hash navigation compatible path
-                navigate('#/users'); 
+                navigate('/users'); 
             } else {
                 setError('root', {
                     type: 'manual',

@@ -68,7 +68,7 @@ const ResetPasswordContent = () => {
 
         if (result.success) {
             // Navigate using hash path for single-file compatibility
-            navigate('#/login');
+            navigate('/login');
         } else {
             setError('root', {
                 type: 'manual',
@@ -84,7 +84,7 @@ const ResetPasswordContent = () => {
                 <div className="card shadow-lg p-10 text-center rounded-xl">
                     <h2 className="text-2xl font-bold text-red-600 mb-4">Error</h2>
                     <p className="text-gray-600 mb-4">Missing or invalid reset token.</p>
-                    <Link to="#/forgot-password" className="text-red-600 hover:text-red-700 font-semibold transition-colors duration-200">
+                    <Link to="/forgot-password" className="text-red-600 hover:text-red-700 font-semibold transition-colors duration-200">
                         Request new reset link
                     </Link>
                 </div>
@@ -208,7 +208,7 @@ const ResetPasswordContent = () => {
                     {/* Back to Login */}
                     <div className="mt-6 text-center border-t border-red-100 pt-4">
                         <Link
-                            to="#/login"
+                            to="/login"
                             // Themed Red Link
                             className="inline-flex items-center text-base font-semibold text-red-600 hover:text-red-700 transition-colors"
                         >
