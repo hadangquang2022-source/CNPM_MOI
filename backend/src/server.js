@@ -43,7 +43,10 @@ app.use('/api/users', userRoutes);
 app.get('/api/health', (req, res) => {
     res.json({ status: 'OK', message: 'Server is running' });
 });
-
+// --- Tích hợp SWAGGER UI ---
+// Tuyến đường để hiển thị tài liệu API
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpecs, { explorer: true }));
+// --- KẾT THÚC SWAGGER UI ---
 // Error handling middleware
 app.use(errorHandler);
 
