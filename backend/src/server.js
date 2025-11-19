@@ -7,6 +7,7 @@ require('dotenv').config();
 const { sequelize } = require('./config/database');
 const authRoutes = require('./routes/auth.routes');
 const userRoutes = require('./routes/user.routes');
+const productRoutes = require('./routes/product.routes');
 const { errorHandler } = require('./middleware/errorHandler');
 
 const app = express();
@@ -38,7 +39,7 @@ app.use('/uploads', express.static('uploads'));
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
-
+app.use('/products', productRoutes);
 // Health check
 app.get('/api/health', (req, res) => {
     res.json({ status: 'OK', message: 'Server is running' });
