@@ -19,6 +19,9 @@ import Profile from "./pages/Profile";
 import UserList from "./pages/users/UserList";
 import UserCreate from "./pages/users/UserCreate";
 import UserEdit from "./pages/users/UserEdit";
+import ProductList from "./pages/products/ProductList";
+import ProductCreate from "./pages/products/ProductCreate";
+import ProductEdit from "./pages/products/ProductEdit";
 import PublicRoute from "./routes/PublicRoute";
 import ProtectedRoute from "./routes/ProtectedRoute";
 
@@ -74,9 +77,9 @@ function App() {
                         <Route
                             path="/dashboard"
                             element={
-                                <PublicRoute>
+                                <ProtectedRoute>
                                     <Dashboard />
-                                </PublicRoute>
+                                </ProtectedRoute>
                             }
                         />
 
@@ -113,6 +116,34 @@ function App() {
                             element={
                                 <ProtectedRoute requiredRole="Admin">
                                     <UserEdit />
+                                </ProtectedRoute>
+                            }
+                        />
+
+                        {/* Product Routes */}
+                        <Route
+                            path="/products"
+                            element={
+                                <ProtectedRoute>
+                                    <ProductList />
+                                </ProtectedRoute>
+                            }
+                        />
+
+                        <Route
+                            path="/products/create"
+                            element={
+                                <ProtectedRoute>
+                                    <ProductCreate />
+                                </ProtectedRoute>
+                            }
+                        />
+
+                        <Route
+                            path="/products/edit/:id"
+                            element={
+                                <ProtectedRoute>
+                                    <ProductEdit />
                                 </ProtectedRoute>
                             }
                         />

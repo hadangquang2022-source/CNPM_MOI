@@ -1,33 +1,10 @@
 import React, { useState } from 'react';
-import { HashRouter, Link, useParams, useNavigate } from 'react-router-dom';
+import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
-import { Eye, EyeOff, Lock, ArrowLeft, CheckCircle } from 'lucide-react';
-
-// --- MOCKING EXTERNAL IMPORTS FOR SINGLE-FILE RUNNABLE ENVIRONMENT ---
-const useAuth = () => {
-    const [isLoading, setIsLoading] = useState(false);
-    
-    const resetPassword = async (data) => {
-        setIsLoading(true);
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        setIsLoading(false);
-        
-        console.log(`[AUTH MOCK] Attempting to reset password for token: ${data.token}`);
-        
-        if (data.token === 'invalid-token') {
-            return { success: false, message: 'Invalid or expired reset token.' };
-        }
-        return { success: true, message: 'Password reset successful!' };
-    };
-
-    return { resetPassword, isLoading };
-};
-
-// Mock useParams to provide a token for the single-file environment
-const mockUseParams = () => ({ token: 'mock-reset-token-123' });
-// --- END MOCKING ---
+import { Eye, EyeOff, Lock, ArrowLeft, CheckCircle, AlertCircle } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
 
 const schema = yup.object({
     newPassword: yup
@@ -40,11 +17,11 @@ const schema = yup.object({
         .required('Please confirm your password'),
 });
 
-const ResetPasswordContent = () => {
+const ResetPassword = () => {
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-    // Use mock params if actual useParams is undefined (due to HashRouter wrapper needing its own internal params)
-    const { token } = mockUseParams(); 
+    const [resetSuccess, setResetSuccess] = useState(false);
+    const { token } = useParams();
     const { resetPassword, isLoading } = useAuth();
     const navigate = useNavigate();
 
@@ -58,7 +35,6 @@ const ResetPasswordContent = () => {
     });
 
     const onSubmit = async (data) => {
-        // Clear previous root errors
         setError('root', { type: 'manual', message: '' });
 
         const result = await resetPassword({
@@ -67,8 +43,11 @@ const ResetPasswordContent = () => {
         });
 
         if (result.success) {
-            // Navigate using hash path for single-file compatibility
-            navigate('/login');
+            setResetSuccess(true);
+            // Auto redirect to login after 3 seconds
+            setTimeout(() => {
+                navigate('/login');
+            }, 3000);
         } else {
             setError('root', {
                 type: 'manual',
@@ -77,47 +56,96 @@ const ResetPasswordContent = () => {
         }
     };
 
-    // Note: If token were truly missing, we'd redirect, but here we assume mockUseParams provides it.
+    // Invalid token state
     if (!token) {
         return (
-            <div className="min-h-screen flex justify-center items-center">
-                <div className="card shadow-lg p-10 text-center rounded-xl">
-                    <h2 className="text-2xl font-bold text-red-600 mb-4">Error</h2>
-                    <p className="text-gray-600 mb-4">Missing or invalid reset token.</p>
-                    <Link to="/forgot-password" className="text-red-600 hover:text-red-700 font-semibold transition-colors duration-200">
-                        Request new reset link
-                    </Link>
+            <div className="min-h-screen flex flex-col lg:flex-row">
+                <div className="lg:w-1/2 bg-gradient-to-tr from-red-500 to-red-600 flex flex-col items-center justify-center p-12 text-white text-center">
+                    <h1 className="text-4xl font-bold">Reset Password</h1>
+                    <p className="mt-4 text-lg">Create a new secure password for your account.</p>
+                </div>
+                <div className="lg:w-1/2 flex items-center justify-center p-12 bg-gray-50">
+                    <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8 text-center space-y-6">
+                        <div className="mx-auto w-16 h-16 bg-red-100 rounded-full flex items-center justify-center">
+                            <AlertCircle className="h-10 w-10 text-red-600" />
+                        </div>
+                        <h2 className="text-2xl font-bold text-gray-900">Invalid Reset Link</h2>
+                        <p className="text-gray-600">
+                            The password reset link is missing or invalid. Please request a new one.
+                        </p>
+                        <Link
+                            to="/forgot-password"
+                            className="inline-block w-full py-2 px-4 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-semibold rounded-xl shadow-md transition-all"
+                        >
+                            Request New Link
+                        </Link>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // Success state
+    if (resetSuccess) {
+        return (
+            <div className="min-h-screen flex flex-col lg:flex-row">
+                <div className="lg:w-1/2 bg-gradient-to-tr from-red-500 to-red-600 flex flex-col items-center justify-center p-12 text-white text-center">
+                    <h1 className="text-4xl font-bold">Password Reset</h1>
+                    <p className="mt-4 text-lg">Your password has been successfully changed!</p>
+                </div>
+                <div className="lg:w-1/2 flex items-center justify-center p-12 bg-gray-50">
+                    <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8 text-center space-y-6">
+                        <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+                            <CheckCircle className="h-10 w-10 text-green-600" />
+                        </div>
+                        <h2 className="text-2xl font-bold text-gray-900">Password Changed!</h2>
+                        <p className="text-gray-600">
+                            Your password has been reset successfully. You can now sign in with your new password.
+                        </p>
+                        <p className="text-sm text-gray-500">
+                            Redirecting to login page in 3 seconds...
+                        </p>
+                        <Link
+                            to="/login"
+                            className="inline-block w-full py-2 px-4 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-semibold rounded-xl shadow-md transition-all"
+                        >
+                            Sign In Now
+                        </Link>
+                    </div>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-            <div className="sm:mx-auto sm:w-full sm:max-w-md">
-                <div className="text-center">
-                    {/* Icon: Themed Red */}
-                    <CheckCircle className="mx-auto h-12 w-12 text-red-600" />
-                    <h2 className="mt-6 text-4xl font-extrabold text-gray-900">
-                        Reset your password
-                    </h2>
-                    <p className="mt-2 text-base text-gray-600">
-                        Enter your new password below.
-                    </p>
-                </div>
+        <div className="min-h-screen flex flex-col lg:flex-row">
+            {/* Left Illustration */}
+            <div className="lg:w-1/2 bg-gradient-to-tr from-red-500 to-red-600 flex flex-col items-center justify-center p-12 text-white text-center">
+                <h1 className="text-4xl font-bold">Reset Password</h1>
+                <p className="mt-4 text-lg">Create a new secure password for your account.</p>
+                <img
+                    src="https://images.unsplash.com/photo-1614064641938-3bbee52942c7?w=400&h=300&fit=crop"
+                    alt="Illustration"
+                    className="mt-6 rounded-xl shadow-lg"
+                />
             </div>
 
-            <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-                {/* Form Card: Use custom card styling */}
-                <div className="card py-8 px-4 shadow-lg sm:rounded-xl sm:px-10">
-                    <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
-                        
+            {/* Right Form */}
+            <div className="lg:w-1/2 flex items-center justify-center p-12 bg-gray-50">
+                <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8 space-y-6">
+                    <div className="text-center">
+                        <Lock className="mx-auto h-14 w-14 text-red-600" />
+                        <h2 className="mt-4 text-3xl font-bold text-gray-900">Create New Password</h2>
+                        <p className="mt-2 text-sm text-gray-600">
+                            Enter your new password below. Make sure it's at least 6 characters.
+                        </p>
+                    </div>
+
+                    <form className="space-y-5" onSubmit={handleSubmit(onSubmit)}>
                         {/* New Password */}
-                        <div className="form-group">
-                            <label htmlFor="newPassword" className="form-label">
-                                New Password
-                            </label>
-                            <div className="mt-1 relative">
+                        <div className="relative">
+                            <label className="block text-sm font-medium text-gray-700">New Password</label>
+                            <div className="mt-1 relative rounded-md shadow-sm">
                                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                     <Lock className="h-5 w-5 text-gray-400" />
                                 </div>
@@ -125,9 +153,10 @@ const ResetPasswordContent = () => {
                                     {...register('newPassword')}
                                     type={showPassword ? 'text' : 'password'}
                                     autoComplete="new-password"
-                                    // Use custom form-input and error classes
-                                    className={`form-input pl-10 pr-10 ${errors.newPassword ? 'error' : ''}`}
                                     placeholder="Enter new password"
+                                    className={`w-full py-2 pl-10 pr-10 border rounded-lg focus:ring-red-500 focus:border-red-500 sm:text-sm ${
+                                        errors.newPassword ? 'border-red-500' : 'border-gray-300'
+                                    }`}
                                 />
                                 <button
                                     type="button"
@@ -142,16 +171,14 @@ const ResetPasswordContent = () => {
                                 </button>
                             </div>
                             {errors.newPassword && (
-                                <p className="error-message">{errors.newPassword.message}</p>
+                                <p className="mt-1 text-xs text-red-600">{errors.newPassword.message}</p>
                             )}
                         </div>
 
                         {/* Confirm Password */}
-                        <div className="form-group">
-                            <label htmlFor="confirmPassword" className="form-label">
-                                Confirm Password
-                            </label>
-                            <div className="mt-1 relative">
+                        <div className="relative">
+                            <label className="block text-sm font-medium text-gray-700">Confirm Password</label>
+                            <div className="mt-1 relative rounded-md shadow-sm">
                                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                     <Lock className="h-5 w-5 text-gray-400" />
                                 </div>
@@ -159,9 +186,10 @@ const ResetPasswordContent = () => {
                                     {...register('confirmPassword')}
                                     type={showConfirmPassword ? 'text' : 'password'}
                                     autoComplete="new-password"
-                                    // Use custom form-input and error classes
-                                    className={`form-input pl-10 pr-10 ${errors.confirmPassword ? 'error' : ''}`}
                                     placeholder="Confirm new password"
+                                    className={`w-full py-2 pl-10 pr-10 border rounded-lg focus:ring-red-500 focus:border-red-500 sm:text-sm ${
+                                        errors.confirmPassword ? 'border-red-500' : 'border-gray-300'
+                                    }`}
                                 />
                                 <button
                                     type="button"
@@ -176,41 +204,47 @@ const ResetPasswordContent = () => {
                                 </button>
                             </div>
                             {errors.confirmPassword && (
-                                <p className="error-message">{errors.confirmPassword.message}</p>
+                                <p className="mt-1 text-xs text-red-600">{errors.confirmPassword.message}</p>
                             )}
                         </div>
 
-                        {/* Error Message */}
-                        {errors.root && (
-                            <div className="rounded-lg bg-red-50 p-4 border border-red-200">
-                                <div className="text-sm font-medium text-red-700">{errors.root.message}</div>
+                        {/* Root Error */}
+                        {errors.root && errors.root.message && (
+                            <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 text-sm">
+                                {errors.root.message}
                             </div>
                         )}
 
                         {/* Submit Button */}
-                        <div>
-                            <button
-                                type="submit"
-                                disabled={isLoading}
-                                // Use btn-primary for red gradient/shadow
-                                className={`btn btn-primary w-full text-base ${isLoading ? 'opacity-60 cursor-not-allowed' : ''}`}
-                            >
-                                {isLoading ? (
-                                    <div className="spinner mr-2"></div>
-                                ) : (
-                                    <CheckCircle className="h-5 w-5 mr-2 text-white" />
-                                )}
-                                {isLoading ? 'Resetting...' : 'Reset Password'}
-                            </button>
-                        </div>
+                        <button
+                            type="submit"
+                            disabled={isLoading}
+                            className={`w-full py-2 px-4 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-semibold rounded-xl shadow-md focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-opacity-50 transition-all flex items-center justify-center ${
+                                isLoading ? 'opacity-60 cursor-not-allowed' : ''
+                            }`}
+                        >
+                            {isLoading ? (
+                                <>
+                                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    Resetting...
+                                </>
+                            ) : (
+                                <>
+                                    <CheckCircle className="h-5 w-5 mr-2" />
+                                    Reset Password
+                                </>
+                            )}
+                        </button>
                     </form>
 
                     {/* Back to Login */}
-                    <div className="mt-6 text-center border-t border-red-100 pt-4">
+                    <div className="mt-6 text-center border-t border-gray-200 pt-4">
                         <Link
                             to="/login"
-                            // Themed Red Link
-                            className="inline-flex items-center text-base font-semibold text-red-600 hover:text-red-700 transition-colors"
+                            className="inline-flex items-center text-red-600 font-medium hover:text-red-700 transition-colors"
                         >
                             <ArrowLeft className="h-4 w-4 mr-2" />
                             Back to sign in
@@ -221,12 +255,5 @@ const ResetPasswordContent = () => {
         </div>
     );
 };
-
-// Wrap ResetPasswordContent with HashRouter for local routing context compatibility
-const ResetPassword = () => (
-    <HashRouter>
-        <ResetPasswordContent />
-    </HashRouter>
-);
 
 export default ResetPassword;

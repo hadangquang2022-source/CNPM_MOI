@@ -103,14 +103,22 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
-    const logout = () => {
-        // Remove token from cookies
-        Cookies.remove('token');
+    const logout = async () => {
+        try {
+            // Call logout API to invalidate token on server
+            await authAPI.logout();
+        } catch (error) {
+            // Ignore errors - we'll logout locally anyway
+            console.error('Logout API error:', error);
+        } finally {
+            // Remove token from cookies
+            Cookies.remove('token');
 
-        // Clear user state
-        setUser(null);
+            // Clear user state
+            setUser(null);
 
-        toast.success('Logged out successfully');
+            toast.success('Đăng xuất thành công!');
+        }
     };
 
     const updateProfile = async (profileData) => {

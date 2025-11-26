@@ -3,6 +3,7 @@ const { body, validationResult } = require('express-validator');
 const {
     register,
     login,
+    logout,
     forgotPassword,
     resetPassword,
     getProfile,
@@ -19,7 +20,7 @@ const validateRegistration = [
     body('lastName').trim().isLength({ min: 2, max: 50 }).withMessage('Last name must be between 2 and 50 characters'),
     body('email').isEmail().normalizeEmail().withMessage('Please provide a valid email'),
     body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters long'),
-    body('phone').optional().isMobilePhone().withMessage('Please provide a valid phone number'),
+    body('phone').optional({ nullable: true, checkFalsy: true }).isMobilePhone().withMessage('Please provide a valid phone number'),
 ];
 
 const validateLogin = [
@@ -39,7 +40,7 @@ const validateResetPassword = [
 const validateProfileUpdate = [
     body('firstName').optional().trim().isLength({ min: 2, max: 50 }).withMessage('First name must be between 2 and 50 characters'),
     body('lastName').optional().trim().isLength({ min: 2, max: 50 }).withMessage('Last name must be between 2 and 50 characters'),
-    body('phone').optional().isMobilePhone().withMessage('Please provide a valid phone number'),
+    body('phone').optional({ nullable: true, checkFalsy: true }).isMobilePhone().withMessage('Please provide a valid phone number'),
 ];
 
 const validateChangePassword = [
@@ -60,13 +61,16 @@ const handleValidationErrors = (req, res, next) => {
     next();
 };
 
-// Routes
+// Public routes (no authentication required)
 router.post('/register', validateRegistration, handleValidationErrors, register);
 router.post('/login', validateLogin, handleValidationErrors, login);
 router.post('/forgot-password', validateForgotPassword, handleValidationErrors, forgotPassword);
 router.post('/reset-password', validateResetPassword, handleValidationErrors, resetPassword);
 
-// Protected routes
+// Logout route (can be called with or without valid token)
+router.post('/logout', logout);
+
+// Protected routes (authentication required)
 router.get('/profile', authMiddleware, getProfile);
 router.put('/profile', authMiddleware, validateProfileUpdate, handleValidationErrors, updateProfile);
 router.put('/change-password', authMiddleware, validateChangePassword, handleValidationErrors, changePassword);

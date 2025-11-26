@@ -39,7 +39,8 @@ app.use('/uploads', express.static('uploads'));
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
-app.use('/products', productRoutes);
+app.use('/api/products', productRoutes);
+
 // Health check
 app.get('/api/health', (req, res) => {
     res.json({ status: 'OK', message: 'Server is running' });

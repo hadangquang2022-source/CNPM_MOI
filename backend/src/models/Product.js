@@ -10,6 +10,7 @@ const Product = sequelize.define('Product', {
     productName: {
         type: DataTypes.STRING(150),
         allowNull: false,
+        field: 'product_name',
         validate: {
             notEmpty: true,
             len: [2, 150]
@@ -43,14 +44,26 @@ const Product = sequelize.define('Product', {
         type: DataTypes.INTEGER,
         allowNull: false,
         defaultValue: 0,
+        field: 'stock_quantity',
         validate: {
             min: 0
         }
     },
     isActive: {
         type: DataTypes.BOOLEAN,
-        defaultValue: true
+        defaultValue: true,
+        field: 'is_active'
     }
+}, {
+    tableName: 'products',
+    underscored: true,
+    indexes: [
+        {
+            type: 'FULLTEXT',
+            name: 'products_fulltext_search',
+            fields: ['product_name', 'description', 'sku']
+        }
+    ]
 });
 
 module.exports = Product;

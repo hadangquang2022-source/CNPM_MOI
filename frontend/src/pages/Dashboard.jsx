@@ -1,20 +1,9 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { HashRouter, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { Users, UserPlus, Activity, TrendingUp, Calendar, Award, ChevronUp, ChevronDown, Plus } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 
-// Mocked useAuth
-const useAuth = () => ({
-    user: {
-        firstName: 'Jane',
-        lastName: 'Doe',
-        email: 'jane.doe@example.com',
-        role: { name: 'Admin' },
-        position: { title: 'CMO' },
-        lastLogin: '2024-11-18T10:30:00Z'
-    },
-});
-
-const DashboardContent = () => {
+const Dashboard = () => {
     const { user } = useAuth();
 
     const [products, setProducts] = useState([]);
@@ -52,7 +41,7 @@ const DashboardContent = () => {
                 const result = await response.json();
                 if (result.data) {
                     setProducts(prev => [...prev, ...result.data]);
-                    setHasMore(result.pagination.hasMore);
+                    setHasMore(result.pagination?.hasMore || false);
                 } else {
                     setError('No products found');
                 }
@@ -92,19 +81,18 @@ const DashboardContent = () => {
         else if (product.stockQuantity < 50) statusColor = 'bg-yellow-100 text-yellow-600';
 
         return (
-            <Link
+            <div
                 ref={refProp}
-                to={`/products/${product.id}`}
-                className="card p-6 rounded-xl shadow-lg hover:shadow-2xl transform transition-all duration-500 ease-out opacity-0 translate-y-4 animate-fadeIn"
+                className="bg-white p-6 rounded-xl shadow-lg hover:shadow-2xl transform transition-all duration-300 hover:-translate-y-1"
             >
                 <h3 className="text-lg font-bold text-gray-900">{product.productName}</h3>
-                <p className="mt-1 text-sm text-gray-500">{product.description}</p>
-                <p className="mt-1 text-sm text-gray-500">Price: ${product.price}</p>
+                <p className="mt-1 text-sm text-gray-500 line-clamp-2">{product.description}</p>
+                <p className="mt-2 text-lg font-semibold text-red-600">${product.price}</p>
                 <p className="mt-1 text-sm text-gray-500">Stock: {product.stockQuantity}</p>
                 <span className={`inline-block mt-2 px-3 py-1 rounded-full text-xs font-semibold ${statusColor}`}>
                     {product.stockQuantity === 0 ? 'Out of Stock' : product.stockQuantity < 50 ? 'Low Stock' : 'In Stock'}
                 </span>
-            </Link>
+            </div>
         );
     };
 
@@ -115,7 +103,9 @@ const DashboardContent = () => {
                 {/* Header */}
                 <div className="mb-10 flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-gray-200 pb-5">
                     <div>
-                        <h1 className="text-4xl font-extrabold text-gray-900">Welcome back, {user.firstName}!</h1>
+                        <h1 className="text-4xl font-extrabold text-gray-900">
+                            Welcome back, {user?.firstName || 'Guest'}!
+                        </h1>
                         <p className="mt-2 text-gray-600">Here's what's happening with your application today.</p>
                     </div>
                     <div className="mt-4 sm:mt-0 flex items-center space-x-3 text-red-600 bg-red-100 px-3 py-1 rounded-full shadow-sm">
@@ -124,63 +114,36 @@ const DashboardContent = () => {
                     </div>
                 </div>
 
-                {/* User Info */}
-                <div className="mb-10 bg-gradient-to-r from-red-600 to-red-800 rounded-xl shadow-2xl p-6 flex items-center space-x-6 hover:scale-[1.01] transform transition duration-500">
-                    <div className="h-16 w-16 bg-red-400 rounded-full flex items-center justify-center shadow-inner border-2 border-white text-white font-bold text-xl">
-                        {user.firstName[0]}{user.lastName[0]}
-                    </div>
-                    <div>
-                        <h2 className="text-2xl font-bold text-white">{user.firstName} {user.lastName}</h2>
-                        <p className="text-red-200">{user.email}</p>
-                        <div className="mt-2 flex flex-wrap gap-2 items-center">
-                            {user.role && <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-white text-red-800 shadow-sm"><Award className="h-3 w-3 mr-1" />{user.role.name}</span>}
-                            {user.position && <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-500 text-white shadow-sm">{user.position.title}</span>}
-                            <Link to="/profile" className="ml-2 text-sm underline text-white">View Profile</Link>
+                {/* User Info - Only show when logged in */}
+                {user && (
+                    <div className="mb-10 bg-gradient-to-r from-red-600 to-red-800 rounded-xl shadow-2xl p-6 flex items-center space-x-6 hover:scale-[1.01] transform transition duration-500">
+                        <div className="h-16 w-16 bg-red-400 rounded-full flex items-center justify-center shadow-inner border-2 border-white text-white font-bold text-xl">
+                            {user.firstName?.[0]}{user.lastName?.[0]}
                         </div>
-                    </div>
-                </div>
-
-                {/* Stats */}
-                {(user.role.name === 'Admin' || user.role.name === 'Manager') && (
-                    <div className="mb-10">
-                        <h3 className="text-xl font-bold text-gray-900 mb-4">Performance Overview</h3>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                            {stats.map(item => <StatCard key={item.id} item={item} />)}
+                        <div>
+                            <h2 className="text-2xl font-bold text-white">{user.firstName} {user.lastName}</h2>
+                            <p className="text-red-200">{user.email}</p>
+                            <div className="mt-2 flex flex-wrap gap-2 items-center">
+                                {user.role && (
+                                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-white text-red-800 shadow-sm">
+                                        <Award className="h-3 w-3 mr-1" />{user.role.name}
+                                    </span>
+                                )}
+                                {user.position && (
+                                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-500 text-white shadow-sm">
+                                        {user.position.title}
+                                    </span>
+                                )}
+                                <Link to="/profile" className="ml-2 text-sm underline text-white hover:text-red-200">
+                                    View Profile
+                                </Link>
+                            </div>
                         </div>
                     </div>
                 )}
-
-                {/* Products */}
-                <div className="mb-10">
-                    <div className="flex justify-between items-center mb-4">
-                        <h3 className="text-xl font-bold text-gray-900">Products</h3>
-                        <Link to="/products/create" className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 shadow-sm">
-                            <Plus className="h-4 w-4 mr-2" /> Add Product
-                        </Link>
-                    </div>
-
-                    {products.length === 0 && loading && <p>Loading products...</p>}
-                    {error && <p className="text-red-600">{error}</p>}
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                        {products.map((product, index) => {
-                            if (products.length === index + 1) {
-                                return <ProductCard refProp={lastProductRef} key={product.id} product={product} />;
-                            } else {
-                                return <ProductCard key={product.id} product={product} />;
-                            }
-                        })}
-                    </div>
-
-                    {loading && <p className="mt-4 text-gray-500">Loading more products...</p>}
-                </div>
             </div>
         </div>
     );
 };
-
-const Dashboard = () => (
-    <DashboardContent />
-);
 
 export default Dashboard;

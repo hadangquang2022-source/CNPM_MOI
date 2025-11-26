@@ -1,70 +1,47 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
-import { User, Mail, Phone, MapPin, Calendar, Camera, Lock, Save, Eye, EyeOff } from 'lucide-react';
-// Assuming useAuth context is available in the environment
-const useAuth = () => ({
-    user: {
-        firstName: 'Jane',
-        lastName: 'Doe',
-        email: 'jane.doe@example.com',
-        phone: '123-456-7890',
-        address: '123 Tech Lane, Silicon Valley',
-        dateOfBirth: '1990-01-01',
-        role: { name: 'Manager' },
-        position: { title: 'Lead Developer' }
-    },
-    updateProfile: async (data) => {
-        console.log('Updating profile with:', data);
-        // Mock successful update
-        return { success: true, message: 'Profile updated successfully!' };
-    },
-    changePassword: async (data) => {
-        console.log('Changing password with:', data);
-        // Mock successful password change
-        return { success: true, message: 'Password changed successfully!' };
-    }
-}); 
-// Note: The useAuth context implementation is mocked above for a runnable single file, 
-// but should be imported correctly in a real application.
-
+import { User, Mail, Phone, MapPin, Calendar, Camera, Lock, Save, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 
 const profileSchema = yup.object({
     firstName: yup
         .string()
-        .min(2, 'First name must be at least 2 characters')
-        .max(50, 'First name must not exceed 50 characters')
-        .required('First name is required'),
+        .min(2, 'Họ phải có ít nhất 2 ký tự')
+        .max(50, 'Họ không được quá 50 ký tự')
+        .required('Họ là bắt buộc'),
     lastName: yup
         .string()
-        .min(2, 'Last name must be at least 2 characters')
-        .max(50, 'Last name must not exceed 50 characters')
-        .required('Last name is required'),
+        .min(2, 'Tên phải có ít nhất 2 ký tự')
+        .max(50, 'Tên không được quá 50 ký tự')
+        .required('Tên là bắt buộc'),
     phone: yup
         .string()
-        .matches(/^[0-9+\-\s()]+$/, 'Invalid phone number format')
-        .optional(),
-    address: yup.string().optional(),
-    dateOfBirth: yup.date().max(new Date(), 'Date of birth cannot be in the future').optional(),
+        .matches(/^[0-9+\-\s()]*$/, 'Số điện thoại không hợp lệ')
+        .nullable(),
+    address: yup.string().nullable(),
+    dateOfBirth: yup.date().max(new Date(), 'Ngày sinh không thể trong tương lai').nullable().transform((value, originalValue) => {
+        return originalValue === '' ? null : value;
+    }),
 });
 
 const passwordSchema = yup.object({
     currentPassword: yup
         .string()
-        .required('Current password is required'),
+        .required('Mật khẩu hiện tại là bắt buộc'),
     newPassword: yup
         .string()
-        .min(6, 'New password must be at least 6 characters')
-        .required('New password is required'),
+        .min(6, 'Mật khẩu mới phải có ít nhất 6 ký tự')
+        .required('Mật khẩu mới là bắt buộc'),
     confirmPassword: yup
         .string()
-        .oneOf([yup.ref('newPassword'), null], 'Passwords must match')
-        .required('Please confirm your password'),
+        .oneOf([yup.ref('newPassword'), null], 'Mật khẩu không khớp')
+        .required('Vui lòng xác nhận mật khẩu'),
 });
 
 const Profile = () => {
-    const { user, updateProfile, changePassword } = useAuth();
+    const { user, updateProfile, changePassword, isLoading: authLoading } = useAuth();
     const [activeTab, setActiveTab] = useState('profile');
     const [showCurrentPassword, setShowCurrentPassword] = useState(false);
     const [showNewPassword, setShowNewPassword] = useState(false);
@@ -74,13 +51,26 @@ const Profile = () => {
     const profileForm = useForm({
         resolver: yupResolver(profileSchema),
         defaultValues: {
-            firstName: user?.firstName || '',
-            lastName: user?.lastName || '',
-            phone: user?.phone || '',
-            address: user?.address || '',
-            dateOfBirth: user?.dateOfBirth ? new Date(user.dateOfBirth).toISOString().split('T')[0] : '',
+            firstName: '',
+            lastName: '',
+            phone: '',
+            address: '',
+            dateOfBirth: '',
         },
     });
+
+    // Update form values when user data loads
+    useEffect(() => {
+        if (user) {
+            profileForm.reset({
+                firstName: user.firstName || '',
+                lastName: user.lastName || '',
+                phone: user.phone || '',
+                address: user.address || '',
+                dateOfBirth: user.dateOfBirth ? new Date(user.dateOfBirth).toISOString().split('T')[0] : '',
+            });
+        }
+    }, [user, profileForm]);
 
     // Password form
     const passwordForm = useForm({
@@ -110,13 +100,35 @@ const Profile = () => {
     };
 
     const formatDate = (dateString) => {
-        if (!dateString) return 'Not provided';
-        return new Date(dateString).toLocaleDateString('en-US', {
+        if (!dateString) return 'Chưa cung cấp';
+        return new Date(dateString).toLocaleDateString('vi-VN', {
             year: 'numeric',
             month: 'long',
             day: 'numeric'
         });
     };
+
+    // Loading state
+    if (authLoading && !user) {
+        return (
+            <div className="min-h-screen flex items-center justify-center">
+                <div className="text-center">
+                    <Loader2 className="h-12 w-12 animate-spin text-red-600 mx-auto" />
+                    <p className="mt-4 text-gray-600">Đang tải thông tin...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (!user) {
+        return (
+            <div className="min-h-screen flex items-center justify-center">
+                <div className="text-center">
+                    <p className="text-gray-600">Không tìm thấy thông tin người dùng</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         // Sử dụng lớp 'body' ngầm định hoặc một lớp nền nhẹ phù hợp
@@ -125,10 +137,10 @@ const Profile = () => {
                 {/* Header */}
                 <div className="px-4 py-6 sm:px-0 mb-6">
                     <h1 className="text-4xl font-extrabold leading-tight text-gray-900">
-                        Profile Settings
+                        Cài đặt Profile
                     </h1>
                     <p className="mt-2 text-base text-gray-600">
-                        Manage your account settings and preferences.
+                        Quản lý thông tin tài khoản và cài đặt của bạn.
                     </p>
                 </div>
 
@@ -177,20 +189,20 @@ const Profile = () => {
                             <button
                                 onClick={() => setActiveTab('profile')}
                                 className={`${activeTab === 'profile'
-                                        ? 'border-red-600 text-red-700' // Màu đỏ active
+                                        ? 'border-red-600 text-red-700'
                                         : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                                     } whitespace-nowrap py-3 px-1 border-b-2 font-semibold text-base transition-colors duration-150`}
                             >
-                                Profile Information
+                                Thông tin cá nhân
                             </button>
                             <button
                                 onClick={() => setActiveTab('password')}
                                 className={`${activeTab === 'password'
-                                        ? 'border-red-600 text-red-700' // Màu đỏ active
+                                        ? 'border-red-600 text-red-700'
                                         : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                                     } whitespace-nowrap py-3 px-1 border-b-2 font-semibold text-base transition-colors duration-150`}
                             >
-                                Change Password
+                                Đổi mật khẩu
                             </button>
                         </nav>
                     </div>
@@ -202,14 +214,13 @@ const Profile = () => {
                                 {/* Current Information Display */}
                                 <div>
                                     <h3 className="text-xl font-bold text-gray-900 mb-6 border-b border-red-100 pb-2">
-                                        Current Information
+                                        Thông tin hiện tại
                                     </h3>
                                     <div className="space-y-6">
-                                        {/* Updated text classes for better hierarchy */}
                                         <div className="flex items-center space-x-3">
                                             <User className="h-5 w-5 text-red-500" />
                                             <div>
-                                                <p className="text-sm font-semibold text-gray-900">Full Name</p>
+                                                <p className="text-sm font-semibold text-gray-900">Họ và tên</p>
                                                 <p className="text-sm text-gray-600">{user?.firstName} {user?.lastName}</p>
                                             </div>
                                         </div>
@@ -223,22 +234,22 @@ const Profile = () => {
                                         <div className="flex items-center space-x-3">
                                             <Phone className="h-5 w-5 text-red-500" />
                                             <div>
-                                                <p className="text-sm font-semibold text-gray-900">Phone</p>
-                                                <p className="text-sm text-gray-600">{user?.phone || 'Not provided'}</p>
+                                                <p className="text-sm font-semibold text-gray-900">Số điện thoại</p>
+                                                <p className="text-sm text-gray-600">{user?.phone || 'Chưa cung cấp'}</p>
                                             </div>
                                         </div>
                                         <div className="flex items-center space-x-3">
                                             <Calendar className="h-5 w-5 text-red-500" />
                                             <div>
-                                                <p className="text-sm font-semibold text-gray-900">Date of Birth</p>
+                                                <p className="text-sm font-semibold text-gray-900">Ngày sinh</p>
                                                 <p className="text-sm text-gray-600">{formatDate(user?.dateOfBirth)}</p>
                                             </div>
                                         </div>
                                         <div className="flex items-start space-x-3">
                                             <MapPin className="h-5 w-5 text-red-500 mt-0.5" />
                                             <div>
-                                                <p className="text-sm font-semibold text-gray-900">Address</p>
-                                                <p className="text-sm text-gray-600">{user?.address || 'Not provided'}</p>
+                                                <p className="text-sm font-semibold text-gray-900">Địa chỉ</p>
+                                                <p className="text-sm text-gray-600">{user?.address || 'Chưa cung cấp'}</p>
                                             </div>
                                         </div>
                                     </div>
@@ -247,21 +258,20 @@ const Profile = () => {
                                 {/* Update Form */}
                                 <div>
                                     <h3 className="text-xl font-bold text-gray-900 mb-6 border-b border-red-100 pb-2">
-                                        Update Information
+                                        Cập nhật thông tin
                                     </h3>
                                     <form onSubmit={profileForm.handleSubmit(onProfileSubmit)} className="space-y-6">
                                         {/* First Name & Last Name */}
                                         <div className="grid grid-cols-2 gap-4">
                                             <div>
                                                 <label htmlFor="firstName" className="form-label">
-                                                    First Name
+                                                    Họ
                                                 </label>
                                                 <input
                                                     {...profileForm.register('firstName')}
                                                     type="text"
-                                                    // Sử dụng lớp form-input tùy chỉnh
                                                     className={`form-input ${profileForm.formState.errors.firstName ? 'error' : ''}`} 
-                                                    placeholder="First name"
+                                                    placeholder="Nhập họ"
                                                 />
                                                 {profileForm.formState.errors.firstName && (
                                                     <p className="error-message">{profileForm.formState.errors.firstName.message}</p>
@@ -269,14 +279,13 @@ const Profile = () => {
                                             </div>
                                             <div>
                                                 <label htmlFor="lastName" className="form-label">
-                                                    Last Name
+                                                    Tên
                                                 </label>
                                                 <input
                                                     {...profileForm.register('lastName')}
                                                     type="text"
-                                                    // Sử dụng lớp form-input tùy chỉnh
                                                     className={`form-input ${profileForm.formState.errors.lastName ? 'error' : ''}`}
-                                                    placeholder="Last name"
+                                                    placeholder="Nhập tên"
                                                 />
                                                 {profileForm.formState.errors.lastName && (
                                                     <p className="error-message">{profileForm.formState.errors.lastName.message}</p>
@@ -288,14 +297,13 @@ const Profile = () => {
                                         <div className="grid grid-cols-2 gap-4">
                                             <div>
                                                 <label htmlFor="phone" className="form-label">
-                                                    Phone Number
+                                                    Số điện thoại
                                                 </label>
                                                 <input
                                                     {...profileForm.register('phone')}
                                                     type="tel"
-                                                    // Sử dụng lớp form-input tùy chỉnh
                                                     className={`form-input ${profileForm.formState.errors.phone ? 'error' : ''}`}
-                                                    placeholder="Phone number"
+                                                    placeholder="Nhập số điện thoại"
                                                 />
                                                 {profileForm.formState.errors.phone && (
                                                     <p className="error-message">{profileForm.formState.errors.phone.message}</p>
@@ -303,12 +311,11 @@ const Profile = () => {
                                             </div>
                                             <div>
                                                 <label htmlFor="dateOfBirth" className="form-label">
-                                                    Date of Birth
+                                                    Ngày sinh
                                                 </label>
                                                 <input
                                                     {...profileForm.register('dateOfBirth')}
                                                     type="date"
-                                                    // Sử dụng lớp form-input tùy chỉnh
                                                     className={`form-input ${profileForm.formState.errors.dateOfBirth ? 'error' : ''}`}
                                                 />
                                                 {profileForm.formState.errors.dateOfBirth && (
@@ -320,14 +327,13 @@ const Profile = () => {
                                         {/* Address */}
                                         <div>
                                             <label htmlFor="address" className="form-label">
-                                                Address
+                                                Địa chỉ
                                             </label>
                                             <textarea
                                                 {...profileForm.register('address')}
                                                 rows={3}
-                                                // Sử dụng lớp form-input tùy chỉnh
                                                 className={`form-input ${profileForm.formState.errors.address ? 'error' : ''}`}
-                                                placeholder="Enter your address"
+                                                placeholder="Nhập địa chỉ của bạn"
                                             />
                                             {profileForm.formState.errors.address && (
                                                 <p className="error-message">{profileForm.formState.errors.address.message}</p>
@@ -353,7 +359,7 @@ const Profile = () => {
                                             ) : (
                                                 <Save className="h-4 w-4 mr-2" />
                                             )}
-                                            {profileForm.formState.isSubmitting ? 'Updating...' : 'Update Profile'}
+                                            {profileForm.formState.isSubmitting ? 'Đang cập nhật...' : 'Cập nhật Profile'}
                                         </button>
                                     </form>
                                 </div>
@@ -366,21 +372,20 @@ const Profile = () => {
                         <div className="card shadow-lg rounded-xl p-8"> 
                             <div className="max-w-md mx-auto">
                                 <h3 className="text-xl font-bold text-gray-900 mb-6 border-b border-red-100 pb-2">
-                                    Change Password
+                                    Đổi mật khẩu
                                 </h3>
                                 <form onSubmit={passwordForm.handleSubmit(onPasswordSubmit)} className="space-y-6">
                                     {/* Current Password */}
                                     <div className="form-group">
                                         <label htmlFor="currentPassword" className="form-label">
-                                            Current Password
+                                            Mật khẩu hiện tại
                                         </label>
                                         <div className="mt-1 relative">
                                             <input
                                                 {...passwordForm.register('currentPassword')}
                                                 type={showCurrentPassword ? 'text' : 'password'}
-                                                // Sử dụng lớp form-input tùy chỉnh
                                                 className={`form-input ${passwordForm.formState.errors.currentPassword ? 'error' : ''}`}
-                                                placeholder="Enter current password"
+                                                placeholder="Nhập mật khẩu hiện tại"
                                             />
                                             <button
                                                 type="button"
@@ -402,15 +407,14 @@ const Profile = () => {
                                     {/* New Password */}
                                     <div className="form-group">
                                         <label htmlFor="newPassword" className="form-label">
-                                            New Password
+                                            Mật khẩu mới
                                         </label>
                                         <div className="mt-1 relative">
                                             <input
                                                 {...passwordForm.register('newPassword')}
                                                 type={showNewPassword ? 'text' : 'password'}
-                                                // Sử dụng lớp form-input tùy chỉnh
                                                 className={`form-input ${passwordForm.formState.errors.newPassword ? 'error' : ''}`}
-                                                placeholder="Enter new password"
+                                                placeholder="Nhập mật khẩu mới"
                                             />
                                             <button
                                                 type="button"
@@ -432,15 +436,14 @@ const Profile = () => {
                                     {/* Confirm Password */}
                                     <div className="form-group">
                                         <label htmlFor="confirmPassword" className="form-label">
-                                            Confirm New Password
+                                            Xác nhận mật khẩu mới
                                         </label>
                                         <div className="mt-1 relative">
                                             <input
                                                 {...passwordForm.register('confirmPassword')}
                                                 type={showConfirmPassword ? 'text' : 'password'}
-                                                // Sử dụng lớp form-input tùy chỉnh
                                                 className={`form-input ${passwordForm.formState.errors.confirmPassword ? 'error' : ''}`}
-                                                placeholder="Confirm new password"
+                                                placeholder="Xác nhận mật khẩu mới"
                                             />
                                             <button
                                                 type="button"
@@ -478,7 +481,7 @@ const Profile = () => {
                                         ) : (
                                             <Lock className="h-4 w-4 mr-2" />
                                         )}
-                                        {passwordForm.formState.isSubmitting ? 'Changing...' : 'Change Password'}
+                                            {passwordForm.formState.isSubmitting ? 'Đang đổi...' : 'Đổi mật khẩu'}
                                     </button>
                                 </form>
                             </div>

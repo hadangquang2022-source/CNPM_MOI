@@ -4,43 +4,8 @@ import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { Eye, EyeOff, Mail, Lock, User, Phone, MapPin, UserPlus, Briefcase, Shield } from 'lucide-react';
-
-// --- MOCK AUTH ---
-const useAuth = () => {
-  const [isLoading, setIsLoading] = useState(false);
-  const registerUser = async (userData) => {
-    setIsLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    setIsLoading(false);
-
-    if (userData.email.includes('exists')) {
-      return { success: false, message: 'User with this email already exists.' };
-    }
-    return { success: true, message: 'Registration successful!' };
-  };
-  return { register: registerUser, isLoading };
-};
-
-const userAPI = {
-  getRoles: async () => ({
-    data: {
-      success: true,
-      data: { roles: [{ id: 1, name: 'Admin' }, { id: 2, name: 'Manager' }, { id: 3, name: 'Staff' }] },
-    },
-  }),
-  getPositions: async () => ({
-    data: {
-      success: true,
-      data: {
-        positions: [
-          { id: 101, title: 'Engineer', department: 'Tech' },
-          { id: 102, title: 'Analyst', department: 'Finance' },
-          { id: 103, title: 'HR Partner', department: 'HR' },
-        ],
-      },
-    },
-  }),
-};
+import { useAuth } from '../../contexts/AuthContext';
+import { userAPI } from '../../services/api';
 
 // --- Validation schema ---
 const schema = yup.object({
@@ -56,7 +21,7 @@ const schema = yup.object({
   positionId: yup.number().optional().nullable(),
 });
 
-const RegisterContent = () => {
+const Register = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [roles, setRoles] = useState([]);
@@ -73,10 +38,14 @@ const RegisterContent = () => {
     const fetchData = async () => {
       try {
         const rolesRes = await userAPI.getRoles();
-        if (rolesRes.data.success) setRoles(rolesRes.data.data.roles);
+        if (rolesRes.data.success) {
+          setRoles(rolesRes.data.data.roles || rolesRes.data.data);
+        }
 
         const positionsRes = await userAPI.getPositions();
-        if (positionsRes.data.success) setPositions(positionsRes.data.data.positions);
+        if (positionsRes.data.success) {
+          setPositions(positionsRes.data.data.positions || positionsRes.data.data);
+        }
       } catch (e) { console.error(e); }
     };
     fetchData();
@@ -216,5 +185,4 @@ const RegisterContent = () => {
   );
 };
 
-const Register = () => <RegisterContent />;
 export default Register;

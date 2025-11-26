@@ -1,33 +1,17 @@
 import React, { useState } from 'react';
-import { HashRouter, Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { Eye, EyeOff, Mail, Lock, LogIn } from 'lucide-react';
-
-// --- MOCK AUTH ---
-const useAuth = () => {
-    const [isLoading, setIsLoading] = useState(false);
-    const login = async (credentials) => {
-        setIsLoading(true);
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        setIsLoading(false);
-
-        if (credentials.email.includes('admin') && credentials.password === 'admin123') return { success: true };
-        if (credentials.email.includes('manager') && credentials.password === 'manager123') return { success: true };
-        if (credentials.email.includes('alice') && credentials.password === 'alice123') return { success: true };
-        return { success: false, message: 'Invalid email or password.' };
-    };
-    return { login, isLoading };
-};
-// --- END MOCK ---
+import { useAuth } from '../../contexts/AuthContext';
 
 const schema = yup.object({
     email: yup.string().email('Please enter a valid email').required('Email is required'),
     password: yup.string().min(6, 'Password must be at least 6 characters').required('Password is required'),
 });
 
-const LoginContent = () => {
+const Login = () => {
     const [showPassword, setShowPassword] = useState(false);
     const { login, isLoading } = useAuth();
     const navigate = useNavigate();
@@ -159,5 +143,4 @@ const LoginContent = () => {
     );
 };
 
-const Login = () => <LoginContent />;
 export default Login;

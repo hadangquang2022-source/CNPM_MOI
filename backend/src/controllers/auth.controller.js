@@ -4,6 +4,9 @@ const bcrypt = require('bcryptjs');
 const nodemailer = require('nodemailer');
 const { User, Role, Position } = require('../models');
 
+// Store for blacklisted tokens (in production, use Redis)
+const tokenBlacklist = new Set();
+
 const generateToken = (userId) => {
     return jwt.sign({ id: userId }, process.env.JWT_SECRET, {
         expiresIn: process.env.JWT_EXPIRE || '7d'
@@ -14,6 +17,61 @@ const generateResetToken = () => {
     return crypto.randomBytes(32).toString('hex');
 };
 
+// Check if token is blacklisted
+const isTokenBlacklisted = (token) => {
+    return tokenBlacklist.has(token);
+};
+
+/**
+ * @swagger
+ * /api/auth/register:
+ *   post:
+ *     summary: Register a new user
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - firstName
+ *               - lastName
+ *               - email
+ *               - password
+ *             properties:
+ *               firstName:
+ *                 type: string
+ *                 example: John
+ *               lastName:
+ *                 type: string
+ *                 example: Doe
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: john@example.com
+ *               password:
+ *                 type: string
+ *                 minLength: 6
+ *                 example: password123
+ *               phone:
+ *                 type: string
+ *                 example: "0901234567"
+ *               address:
+ *                 type: string
+ *               dateOfBirth:
+ *                 type: string
+ *                 format: date
+ *               roleId:
+ *                 type: integer
+ *               positionId:
+ *                 type: integer
+ *     responses:
+ *       201:
+ *         description: User registered successfully
+ *       400:
+ *         description: Validation error or email already exists
+ */
 const register = async (req, res) => {
     try {
         const { firstName, lastName, email, password, phone, address, dateOfBirth, roleId, positionId } = req.body;
@@ -55,9 +113,9 @@ const register = async (req, res) => {
             lastName,
             email,
             password,
-            phone,
-            address,
-            dateOfBirth,
+            phone: phone || null,
+            address: address || null,
+            dateOfBirth: dateOfBirth || null,
             roleId: roleId || null,
             positionId: positionId || null
         };
@@ -93,6 +151,35 @@ const register = async (req, res) => {
     }
 };
 
+/**
+ * @swagger
+ * /api/auth/login:
+ *   post:
+ *     summary: Login user
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - password
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: admin@example.com
+ *               password:
+ *                 type: string
+ *                 example: admin123
+ *     responses:
+ *       200:
+ *         description: Login successful
+ *       401:
+ *         description: Invalid credentials
+ */
 const login = async (req, res) => {
     try {
         const { email, password } = req.body;
@@ -125,7 +212,7 @@ const login = async (req, res) => {
         if (!user.isActive) {
             return res.status(401).json({
                 success: false,
-                message: 'Account is deactivated'
+                message: 'Account is deactivated. Please contact administrator.'
             });
         }
 
@@ -163,6 +250,67 @@ const login = async (req, res) => {
     }
 };
 
+/**
+ * @swagger
+ * /api/auth/logout:
+ *   post:
+ *     summary: Logout user (invalidate token)
+ *     tags: [Authentication]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Logout successful
+ */
+const logout = async (req, res) => {
+    try {
+        // Get token from header
+        const token = req.header('Authorization')?.replace('Bearer ', '');
+        
+        if (token) {
+            // Add token to blacklist
+            tokenBlacklist.add(token);
+        }
+
+        res.json({
+            success: true,
+            message: 'Logout successful'
+        });
+    } catch (error) {
+        console.error('Logout error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Logout failed',
+            error: error.message
+        });
+    }
+};
+
+/**
+ * @swagger
+ * /api/auth/forgot-password:
+ *   post:
+ *     summary: Request password reset email
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: user@example.com
+ *     responses:
+ *       200:
+ *         description: Password reset email sent
+ *       404:
+ *         description: User not found
+ */
 const forgotPassword = async (req, res) => {
     try {
         const { email } = req.body;
@@ -220,14 +368,14 @@ const forgotPassword = async (req, res) => {
         <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
             <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 20px;">
                 <!-- Header -->
-                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 20px; text-align: center; border-radius: 10px 10px 0 0;">
+                <div style="background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); padding: 40px 20px; text-align: center; border-radius: 10px 10px 0 0;">
                     <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: bold;">🔐 Password Reset</h1>
                     <p style="color: #ffffff; margin: 10px 0 0 0; opacity: 0.9;">Lab04 Full Stack Application</p>
                 </div>
                 
                 <!-- Content -->
                 <div style="padding: 40px 20px;">
-                    <h2 style="color: #333333; margin: 0 0 20px 0; font-size: 24px;">Hello there!</h2>
+                    <h2 style="color: #333333; margin: 0 0 20px 0; font-size: 24px;">Hello ${user.firstName}!</h2>
                     
                     <p style="color: #666666; line-height: 1.6; margin: 0 0 20px 0;">
                         We received a request to reset the password for your Lab04 account. No worries, it happens to the best of us!
@@ -242,20 +390,20 @@ const forgotPassword = async (req, res) => {
                         <a href="${resetUrl}" 
                            style="display: inline-block; 
                                   padding: 15px 30px; 
-                                  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                                  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
                                   color: #ffffff; 
                                   text-decoration: none; 
                                   border-radius: 25px; 
                                   font-weight: bold;
                                   font-size: 16px;
-                                  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);">
+                                  box-shadow: 0 4px 15px rgba(220, 38, 38, 0.3);">
                             Reset My Password
                         </a>
                     </div>
                     
                     <!-- Security Info -->
-                    <div style="background-color: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 15px; margin: 30px 0;">
-                        <p style="color: #856404; margin: 0; font-size: 14px; line-height: 1.5;">
+                    <div style="background-color: #fef3c7; border: 1px solid #fcd34d; border-radius: 8px; padding: 15px; margin: 30px 0;">
+                        <p style="color: #92400e; margin: 0; font-size: 14px; line-height: 1.5;">
                             <strong>🔒 Security Note:</strong> This link will expire in <strong>10 minutes</strong> for your security. 
                             If you didn't request this password reset, please ignore this email.
                         </p>
@@ -265,7 +413,7 @@ const forgotPassword = async (req, res) => {
                         If the button doesn't work, you can copy and paste this link into your browser:
                     </p>
                     
-                    <p style="color: #667eea; word-break: break-all; font-size: 14px; background-color: #f8f9fa; padding: 10px; border-radius: 5px; margin: 10px 0;">
+                    <p style="color: #dc2626; word-break: break-all; font-size: 14px; background-color: #fef2f2; padding: 10px; border-radius: 5px; margin: 10px 0;">
                         ${resetUrl}
                     </p>
                 </div>
@@ -300,7 +448,7 @@ const forgotPassword = async (req, res) => {
 
             res.status(500).json({
                 success: false,
-                message: 'Failed to send reset email'
+                message: 'Failed to send reset email. Please check email configuration.'
             });
         }
     } catch (error) {
@@ -313,6 +461,35 @@ const forgotPassword = async (req, res) => {
     }
 };
 
+/**
+ * @swagger
+ * /api/auth/reset-password:
+ *   post:
+ *     summary: Reset password with token
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - token
+ *               - newPassword
+ *             properties:
+ *               token:
+ *                 type: string
+ *                 example: abc123def456...
+ *               newPassword:
+ *                 type: string
+ *                 minLength: 6
+ *                 example: newpassword123
+ *     responses:
+ *       200:
+ *         description: Password reset successful
+ *       400:
+ *         description: Invalid or expired token
+ */
 const resetPassword = async (req, res) => {
     try {
         const { token, newPassword } = req.body;
@@ -356,7 +533,7 @@ const resetPassword = async (req, res) => {
 
         res.json({
             success: true,
-            message: 'Password reset successful'
+            message: 'Password reset successful. You can now login with your new password.'
         });
     } catch (error) {
         console.error('Reset password error:', error);
@@ -368,6 +545,20 @@ const resetPassword = async (req, res) => {
     }
 };
 
+/**
+ * @swagger
+ * /api/auth/profile:
+ *   get:
+ *     summary: Get current user profile
+ *     tags: [Authentication]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: User profile
+ *       401:
+ *         description: Unauthorized
+ */
 const getProfile = async (req, res) => {
     try {
         const user = await User.findByPk(req.user.id, {
@@ -391,6 +582,35 @@ const getProfile = async (req, res) => {
     }
 };
 
+/**
+ * @swagger
+ * /api/auth/profile:
+ *   put:
+ *     summary: Update current user profile
+ *     tags: [Authentication]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               firstName:
+ *                 type: string
+ *               lastName:
+ *                 type: string
+ *               phone:
+ *                 type: string
+ *               address:
+ *                 type: string
+ *               dateOfBirth:
+ *                 type: string
+ *                 format: date
+ *     responses:
+ *       200:
+ *         description: Profile updated successfully
+ */
 const updateProfile = async (req, res) => {
     try {
         const { firstName, lastName, phone, address, dateOfBirth } = req.body;
@@ -435,6 +655,35 @@ const updateProfile = async (req, res) => {
     }
 };
 
+/**
+ * @swagger
+ * /api/auth/change-password:
+ *   put:
+ *     summary: Change current user password
+ *     tags: [Authentication]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - currentPassword
+ *               - newPassword
+ *             properties:
+ *               currentPassword:
+ *                 type: string
+ *               newPassword:
+ *                 type: string
+ *                 minLength: 6
+ *     responses:
+ *       200:
+ *         description: Password changed successfully
+ *       400:
+ *         description: Current password incorrect
+ */
 const changePassword = async (req, res) => {
     try {
         const { currentPassword, newPassword } = req.body;
@@ -485,9 +734,11 @@ const changePassword = async (req, res) => {
 module.exports = {
     register,
     login,
+    logout,
     forgotPassword,
     resetPassword,
     getProfile,
     updateProfile,
-    changePassword
+    changePassword,
+    isTokenBlacklisted
 };

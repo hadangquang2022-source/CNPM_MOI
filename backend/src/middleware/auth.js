@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const { User, Role, Position } = require('../models');
+const { isTokenBlacklisted } = require('../controllers/auth.controller');
 
 const authMiddleware = async (req, res, next) => {
     try {
@@ -9,6 +10,14 @@ const authMiddleware = async (req, res, next) => {
             return res.status(401).json({
                 success: false,
                 message: 'Access denied. No token provided.'
+            });
+        }
+
+        // Check if token is blacklisted (logged out)
+        if (isTokenBlacklisted(token)) {
+            return res.status(401).json({
+                success: false,
+                message: 'Token has been invalidated. Please login again.'
             });
         }
 
@@ -31,6 +40,21 @@ const authMiddleware = async (req, res, next) => {
         next();
     } catch (error) {
         console.error('Auth middleware error:', error);
+        
+        if (error.name === 'TokenExpiredError') {
+            return res.status(401).json({
+                success: false,
+                message: 'Token has expired. Please login again.'
+            });
+        }
+        
+        if (error.name === 'JsonWebTokenError') {
+            return res.status(401).json({
+                success: false,
+                message: 'Invalid token format.'
+            });
+        }
+        
         return res.status(401).json({
             success: false,
             message: 'Invalid token.'

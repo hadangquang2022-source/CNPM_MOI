@@ -3,7 +3,7 @@ import Cookies from 'js-cookie';
 
 // Create axios instance with base configuration
 const api = axios.create({
-    baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5001/api',
+    baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
     timeout: 10000,
     headers: {
         'Content-Type': 'application/json',
@@ -14,7 +14,6 @@ const api = axios.create({
 api.interceptors.request.use(
     (config) => {
         const token = Cookies.get('token');
-        console.log('🔑 API Request:', config.method?.toUpperCase(), config.url, token ? 'Token present' : 'No token');
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
         }
@@ -31,45 +30,30 @@ api.interceptors.response.use(
         return response;
     },
     (error) => {
-        console.log('❌ API Error:', {
-            method: error.config?.method?.toUpperCase(),
-            url: error.config?.url,
-            status: error.response?.status,
-            message: error.response?.data?.message,
-            data: error.response?.data
-        });
-
-        // Handle 401 unauthorized errors, but not for login attempts or profile/user operations  
+        // Handle 401 unauthorized errors
         if (error.response?.status === 401) {
-            console.log('🔒 401 Error detected, checking URL:', error.config?.url);
+            const isAuthRequest = error.config?.url?.includes('/auth/login') ||
+                                  error.config?.url?.includes('/auth/register') ||
+                                  error.config?.url?.includes('/auth/forgot-password') ||
+                                  error.config?.url?.includes('/auth/reset-password');
 
-            const isLoginRequest = error.config?.url?.includes('/auth/login');
-            const isProfileRequest = error.config?.url?.includes('/auth/profile');
-            const isPasswordRequest = error.config?.url?.includes('/auth/change-password');
-            const isUserRequest = error.config?.url?.includes('/users/');
-
-            console.log('🔍 Request type check:', {
-                isLoginRequest,
-                isProfileRequest,
-                isPasswordRequest,
-                isUserRequest
-            });
-
-            if (!isLoginRequest && !isProfileRequest && !isPasswordRequest && !isUserRequest) {
-                console.warn('🚪 Unauthorized request, logging out...');
+            // Don't redirect for auth requests - let the component handle it
+            if (!isAuthRequest) {
+                // Token expired or invalid, clear and redirect
                 Cookies.remove('token');
                 window.location.href = '/login';
-            } else {
-                console.log('⚠️ 401 error but keeping user logged in (whitelisted request)');
             }
         }
 
         return Promise.reject(error);
     }
-);// Auth API endpoints
+);
+
+// Auth API endpoints
 export const authAPI = {
     login: (credentials) => api.post('/auth/login', credentials),
     register: (userData) => api.post('/auth/register', userData),
+    logout: () => api.post('/auth/logout'),
     forgotPassword: (data) => api.post('/auth/forgot-password', data),
     resetPassword: (data) => api.post('/auth/reset-password', data),
     getProfile: () => api.get('/auth/profile'),
@@ -91,6 +75,17 @@ export const userAPI = {
     toggleUserStatus: (id) => api.patch(`/users/${id}/toggle-status`),
     getRoles: () => api.get('/users/roles'),
     getPositions: () => api.get('/users/positions'),
+};
+
+// Product API endpoints
+export const productAPI = {
+    getProducts: (params) => api.get('/products', { params }),
+    getProductById: (id) => api.get(`/products/${id}`),
+    createProduct: (data) => api.post('/products', data),
+    updateProduct: (id, data) => api.put(`/products/${id}`, data),
+    deleteProduct: (id) => api.delete(`/products/${id}`),
+    getCategories: () => api.get('/products/categories'),
+    getProductsByCategory: (category, params) => api.get(`/products/category/${category}`, { params }),
 };
 
 // General API for health check
