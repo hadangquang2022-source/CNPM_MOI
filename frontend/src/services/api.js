@@ -86,6 +86,62 @@ export const productAPI = {
     deleteProduct: (id) => api.delete(`/products/${id}`),
     getCategories: () => api.get('/products/categories'),
     getProductsByCategory: (category, params) => api.get(`/products/category/${category}`, { params }),
+    getSimilarProducts: (id, limit = 8) => api.get(`/products/${id}/similar`, { params: { limit } }),
+    getProductStats: (id) => api.get(`/products/${id}/stats`),
+};
+
+// Order API endpoints
+export const orderAPI = {
+    createOrder: (data) => api.post('/orders', data),
+    getOrders: (params) => api.get('/orders', { params }),
+    getOrderById: (id) => api.get(`/orders/${id}`),
+    trackOrder: (code) => api.get(`/orders/track/${code}`),
+    getMyOrders: (params) => api.get('/orders/my-orders', { params }),
+    updateOrderStatus: (id, data) => api.patch(`/orders/${id}/status`, data),
+    cancelOrder: (id, data) => api.post(`/orders/${id}/cancel`, data),
+    getOrderStats: () => api.get('/orders/stats'),
+};
+
+// Cart API endpoints
+export const cartAPI = {
+    getCart: () => api.get('/cart'),
+    addToCart: (productId, quantity = 1) => api.post('/cart/add', { productId, quantity }),
+    updateCartItem: (itemId, quantity) => api.put(`/cart/item/${itemId}`, { quantity }),
+    removeFromCart: (itemId) => api.delete(`/cart/item/${itemId}`),
+    clearCart: () => api.delete('/cart/clear'),
+};
+
+// Wishlist API endpoints
+export const wishlistAPI = {
+    getWishlist: () => api.get('/wishlist'),
+    addToWishlist: (productId) => api.post('/wishlist', { productId }),
+    removeFromWishlist: (productId) => api.delete(`/wishlist/${productId}`),
+    toggleWishlist: (productId) => api.post(`/wishlist/toggle/${productId}`),
+    checkWishlist: (productId) => api.get(`/wishlist/check/${productId}`),
+};
+
+// Product View API endpoints
+export const productViewAPI = {
+    recordView: (productId, sessionId) => api.post(`/product-views/${productId}`, {}, {
+        headers: sessionId ? { 'X-Session-Id': sessionId } : {}
+    }),
+    getRecentlyViewed: (limit = 10, sessionId) => api.get('/product-views/recent', {
+        params: { limit },
+        headers: sessionId ? { 'X-Session-Id': sessionId } : {}
+    }),
+    getViewCount: (productId) => api.get(`/product-views/count/${productId}`),
+    clearViewHistory: () => api.delete('/product-views/history'),
+};
+
+// Review API endpoints
+export const reviewAPI = {
+    getProductReviews: (productId, params) => api.get(`/reviews/product/${productId}`, { params }),
+    getReviewCount: (productId) => api.get(`/reviews/count/${productId}`),
+    createReview: (data) => api.post('/reviews', data),
+    updateReview: (id, data) => api.put(`/reviews/${id}`, data),
+    deleteReview: (id) => api.delete(`/reviews/${id}`),
+    getUserReview: (productId) => api.get(`/reviews/my-review/${productId}`),
+    markHelpful: (id) => api.post(`/reviews/${id}/helpful`),
 };
 
 // General API for health check

@@ -1,76 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { HashRouter, Link, useParams, useNavigate } from 'react-router-dom';
+import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { ArrowLeft, Save, User, Mail, Phone, MapPin, Calendar, Camera, ToggleLeft, ToggleRight, Award, Briefcase } from 'lucide-react';
-
-// --- MOCKING EXTERNAL IMPORTS FOR SINGLE-FILE RUNNABLE ENVIRONMENT ---
-// Mock useParams and useNavigate are automatically handled by HashRouter setup.
-const mockUser = {
-    id: 1,
-    firstName: 'Alice',
-    lastName: 'Johnson',
-    email: 'alice.johnson@corp.com',
-    phone: '987-654-3210',
-    address: '456 Innovation Dr, CA',
-    dateOfBirth: '1995-08-15',
-    roleId: 2, // Manager
-    positionId: 101, // Engineer
-    isActive: true,
-    createdAt: '2020-01-01T00:00:00Z',
-    lastLogin: '2025-11-18T10:00:00Z',
-    role: { id: 2, name: 'Manager' }, // Mocking nested fields for info card
-    position: { id: 101, title: 'Engineer' }
-};
-
-const userAPI = {
-    getUserById: async (id) => {
-        await new Promise(resolve => setTimeout(resolve, 500));
-        if (id === '1') {
-            return { data: { success: true, data: { user: mockUser } } };
-        }
-        return { data: { success: false, data: {} } };
-    },
-    getRoles: async () => ({
-        data: {
-            success: true,
-            data: {
-                roles: [{ id: 1, name: 'Admin' }, { id: 2, name: 'Manager' }, { id: 3, name: 'Staff' }],
-            },
-        },
-    }),
-    getPositions: async () => ({
-        data: {
-            success: true,
-            data: {
-                positions: [
-                    { id: 101, title: 'Engineer', department: 'Tech' },
-                    { id: 102, title: 'Analyst', department: 'Finance' },
-                    { id: 103, title: 'HR Partner', department: 'HR' },
-                ],
-            },
-        },
-    }),
-    updateUser: async (id, data) => {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        console.log(`[API MOCK] Updating User ${id}:`, data);
-        if (data.firstName === 'Error') {
-            return { data: { success: false, message: 'Simulated server error during update.' } };
-        }
-        return { data: { success: true, message: 'User updated successfully!' } };
-    },
-    toggleUserStatus: async (id) => {
-        await new Promise(resolve => setTimeout(resolve, 500));
-        return { data: { success: true } };
-    }
-};
-
-const toast = {
-    success: (msg) => console.log('TOAST SUCCESS:', msg),
-    error: (msg) => console.error('TOAST ERROR:', msg)
-};
-// --- END MOCKING ---
+import toast from 'react-hot-toast';
+import { userAPI } from '../../services/api';
 
 const schema = yup.object({
     firstName: yup
@@ -102,7 +37,7 @@ const schema = yup.object({
     positionId: yup.number().typeError('Position must be a number').optional().nullable().transform((curr, orig) => orig === '' ? null : curr),
 });
 
-const UserEditContent = () => {
+const UserEdit = () => {
     // Note: id is mocked via HashRouter wrapper in the single file environment
     const { id } = useParams();
     const navigate = useNavigate();
@@ -127,11 +62,8 @@ const UserEditContent = () => {
     });
 
     useEffect(() => {
-        // Mock setting a fake ID for demonstration if useParams is empty
-        const actualId = id || '1'; 
-        
         const initData = async () => {
-            await Promise.all([fetchUser(actualId), fetchRoles(), fetchPositions()]);
+            await Promise.all([fetchUser(id), fetchRoles(), fetchPositions()]);
         };
         initData();
     }, [id]);
@@ -192,7 +124,7 @@ const UserEditContent = () => {
     const onSubmit = async (data) => {
         try {
             setIsSubmitting(true);
-            
+
             // Transform data for API consistency (matching schema transform)
             const updateData = {
                 firstName: data.firstName,
@@ -295,7 +227,7 @@ const UserEditContent = () => {
                                 Update user information, role, and position assignments.
                             </p>
                         </div>
-                        
+
                         {/* Toggle Status Button (Themed) */}
                         <div className="flex items-center space-x-3">
                             <button
@@ -369,14 +301,14 @@ const UserEditContent = () => {
                 <div className="px-4 sm:px-0">
                     <div className="card shadow-lg rounded-xl p-8">
                         <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
-                            
+
                             {/* Personal Information Section */}
                             <div>
                                 <h3 className="text-xl font-bold text-gray-900 mb-6 border-b border-red-100 pb-2">
                                     Personal Information
                                 </h3>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    
+
                                     {/* First Name */}
                                     <div className="form-group">
                                         <label htmlFor="firstName" className="form-label">
@@ -418,7 +350,7 @@ const UserEditContent = () => {
                                             <p className="error-message">{errors.lastName.message}</p>
                                         )}
                                     </div>
-                                    
+
                                     {/* Email (Readonly) */}
                                     <div className="form-group">
                                         <label htmlFor="email" className="form-label">
@@ -440,7 +372,7 @@ const UserEditContent = () => {
                                             <p className="error-message">{errors.email.message}</p>
                                         )}
                                     </div>
-                                    
+
                                     {/* Phone */}
                                     <div className="form-group">
                                         <label htmlFor="phone" className="form-label">
@@ -482,7 +414,7 @@ const UserEditContent = () => {
                                         )}
                                     </div>
                                 </div>
-                                
+
                                 {/* Address */}
                                 <div className="form-group mt-6">
                                     <label htmlFor="address" className="form-label">
@@ -511,7 +443,7 @@ const UserEditContent = () => {
                                     Role & Position Assignment
                                 </h3>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    
+
                                     {/* Role */}
                                     <div className="form-group">
                                         <label htmlFor="roleId" className="form-label">
@@ -575,7 +507,7 @@ const UserEditContent = () => {
 
                             {/* Submit Buttons */}
                             <div className="border-t border-red-300 pt-6 flex justify-end space-x-4">
-                                
+
                                 {/* Cancel Button */}
                                 <Link
                                     to="/users"
@@ -583,7 +515,7 @@ const UserEditContent = () => {
                                 >
                                     Cancel
                                 </Link>
-                                
+
                                 {/* Update Button */}
                                 <button
                                     type="submit"
@@ -604,14 +536,7 @@ const UserEditContent = () => {
                 </div>
             </div>
         </div>
-    ); 
+    );
 };
-
-// Wrap UserEditContent with HashRouter for local routing context compatibility
-const UserEdit = () => (
-    <HashRouter>
-        <UserEditContent />
-    </HashRouter>
-);
 
 export default UserEdit;

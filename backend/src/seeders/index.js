@@ -1,5 +1,5 @@
 const { sequelize } = require('../config/database');
-const { User, Role, Position, Product } = require('../models');
+const { User, Role, Product } = require('../models');
 
 const seedDatabase = async () => {
     try {
@@ -8,65 +8,38 @@ const seedDatabase = async () => {
         await sequelize.sync({ force: true });
         console.log('Database synced successfully');
 
-        // Seed Roles
+        // Seed Roles - Only Admin and Customer
         const roles = await Role.bulkCreate([
-            { name: 'Admin', description: 'Full system access and user management', isActive: true },
-            { name: 'Manager', description: 'User management and reporting access', isActive: true },
-            { name: 'Employee', description: 'Basic user access', isActive: true },
-            { name: 'User', description: 'Standard user access', isActive: true },
+            { name: 'Admin', description: 'Full system access and management', isActive: true },
+            { name: 'Customer', description: 'Regular customer who can browse and purchase products', isActive: true }
         ]);
         console.log('Roles created successfully');
 
-        // Seed Positions
-        const positions = await Position.bulkCreate([
-            { title: 'Software Engineer', description: 'Develops apps', department: 'Engineering', salary: 75000, isActive: true },
-            { title: 'Senior Software Engineer', description: 'Senior dev', department: 'Engineering', salary: 95000, isActive: true },
-            { title: 'Product Manager', description: 'Manages product', department: 'Product', salary: 85000, isActive: true },
-            { title: 'UI/UX Designer', description: 'Designs UI', department: 'Design', salary: 65000, isActive: true },
-            { title: 'DevOps Engineer', description: 'Handles infra', department: 'Engineering', salary: 80000, isActive: true },
-            { title: 'HR Manager', description: 'Handles HR', department: 'Human Resources', salary: 70000, isActive: true },
-        ]);
-        console.log('Positions created successfully');
-
-        // Seed Users
+        // Seed Users - 1 Admin and 1 Customer
         const users = await User.bulkCreate([
             {
                 firstName: 'Admin',
                 lastName: 'User',
                 email: 'admin@example.com',
                 password: 'admin123',
-                phone: '+1234567890',
+                phone: '0123456789',
                 address: '123 Admin Street, Admin City',
                 dateOfBirth: '1990-01-01',
-                roleId: roles[0].id,
-                positionId: positions[1].id,
+                roleId: roles[0].id, // Admin
                 isActive: true
             },
             {
-                firstName: 'John',
-                lastName: 'Manager',
-                email: 'manager@example.com',
-                password: 'manager123',
-                phone: '+1234567891',
-                address: '456 Manager Ave',
-                dateOfBirth: '1985-05-15',
-                roleId: roles[1].id,
-                positionId: positions[2].id,
-                isActive: true
-            },
-            {
-                firstName: 'Alice',
-                lastName: 'Smith',
-                email: 'alice@example.com',
-                password: 'alice123',
-                phone: '+1234567892',
-                address: '789 Employee St',
-                dateOfBirth: '1992-08-20',
-                roleId: roles[2].id,
-                positionId: positions[0].id,
+                firstName: 'Customer',
+                lastName: 'User',
+                email: 'customer@example.com',
+                password: 'customer123',
+                phone: '0987654321',
+                address: '456 Customer Ave, Customer City',
+                dateOfBirth: '1995-06-15',
+                roleId: roles[1].id, // Customer
                 isActive: true
             }
-        ]);
+        ], { individualHooks: true }); // Enable hooks for password hashing
         console.log('Users created successfully');
 
         // Seed Products
@@ -128,7 +101,10 @@ const seedDatabase = async () => {
         ]);
         console.log('Products created successfully');
 
-        console.log('Database seeding completed successfully!');
+        console.log('\n=== Database seeding completed successfully! ===');
+        console.log('\nTest Accounts:');
+        console.log('Admin: admin@example.com / admin123');
+        console.log('Customer: customer@example.com / customer123\n');
 
         process.exit(0);
     } catch (error) {

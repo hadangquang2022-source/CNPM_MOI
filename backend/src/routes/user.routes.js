@@ -7,8 +7,7 @@ const {
     updateUser,
     deleteUser,
     toggleUserStatus,
-    getRoles,
-    getPositions
+    getRoles
 } = require('../controllers/user.controller');
 const { authMiddleware, adminMiddleware, managerMiddleware } = require('../middleware/auth');
 const { handleUploadError } = require('../middleware/upload');
@@ -22,8 +21,7 @@ const validateUser = [
     body('email').isEmail().normalizeEmail().withMessage('Please provide a valid email'),
     body('password').optional().isLength({ min: 6 }).withMessage('Password must be at least 6 characters long'),
     body('phone').optional().isMobilePhone().withMessage('Please provide a valid phone number'),
-    body('roleId').optional().isInt({ min: 1 }).withMessage('Role ID must be a valid number'),
-    body('positionId').optional().isInt({ min: 1 }).withMessage('Position ID must be a valid number')
+    body('roleId').optional().isInt({ min: 1 }).withMessage('Role ID must be a valid number')
 ];
 
 const validateUserUpdate = [
@@ -32,7 +30,6 @@ const validateUserUpdate = [
     body('email').optional().isEmail().normalizeEmail().withMessage('Please provide a valid email'),
     body('phone').optional().isMobilePhone().withMessage('Please provide a valid phone number'),
     body('roleId').optional().isInt({ min: 1 }).withMessage('Role ID must be a valid number'),
-    body('positionId').optional().isInt({ min: 1 }).withMessage('Position ID must be a valid number'),
     body('isActive').optional().isBoolean().withMessage('isActive must be a boolean value')
 ];
 
@@ -73,28 +70,6 @@ const handleValidationErrors = (req, res, next) => {
  */
 router.get('/roles', getRoles);
 
-/**
- * @swagger
- * /users/positions:
- * get:
- * summary: Get all available user positions
- * tags: [User Management]
- * responses:
- * 200:
- * description: A list of positions
- * content:
- * application/json:
- * schema:
- * type: array
- * items:
- * type: object
- * properties:
- * id: { type: integer, example: 1 }
- * name: { type: string, example: "Software Engineer" }
- * 500:
- * description: Server error
- */
-router.get('/positions', getPositions);
 // Protected routes - require authentication
 router.use(authMiddleware);
 
@@ -193,7 +168,6 @@ router.get('/:id', managerMiddleware, getUserById);
  * password: { type: string, format: password, example: "P@ssword123", minLength: 6 }
  * phone: { type: string, example: "0901234567", optional: true }
  * roleId: { type: integer, example: 2, description: "ID of the role (e.g., Manager)" }
- * positionId: { type: integer, example: 5, description: "ID of the position" }
  * responses:
  * 201:
  * description: User created successfully
@@ -237,7 +211,6 @@ router.post('/', adminMiddleware, handleUploadError, validateUser, handleValidat
  * email: { type: string, format: email, example: "jane.updated@example.com", optional: true }
  * phone: { type: string, example: "0909876543", optional: true }
  * roleId: { type: integer, example: 3, optional: true }
- * positionId: { type: integer, example: 6, optional: true }
  * isActive: { type: boolean, example: true, optional: true }
  * responses:
  * 200:

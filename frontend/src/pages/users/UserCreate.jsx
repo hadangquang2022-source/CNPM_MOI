@@ -1,51 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { HashRouter, Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { ArrowLeft, Save, User, Mail, Phone, MapPin, Calendar, Lock, Eye, EyeOff, Briefcase, Award } from 'lucide-react';
-
-// Mocking external imports for single-file runnable environment
-const userAPI = {
-    getRoles: async () => ({
-        data: {
-            success: true,
-            data: {
-                roles: [{ id: 1, name: 'Admin' }, { id: 2, name: 'Manager' }, { id: 3, name: 'Staff' }],
-            },
-        },
-    }),
-    getPositions: async () => ({
-        data: {
-            success: true,
-            data: {
-                positions: [
-                    { id: 101, title: 'Engineer', department: 'Tech' },
-                    { id: 102, title: 'Analyst', department: 'Finance' },
-                    { id: 103, title: 'HR Partner', department: 'HR' },
-                ],
-            },
-        },
-    }),
-    createUser: async (formData) => {
-        // Simulate API call delay
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        console.log('Attempting to create user with data:', Object.fromEntries(formData.entries()));
-        
-        // Mock success response
-        if (Math.random() > 0.1) {
-            return { data: { success: true, message: 'User created successfully!' } };
-        } else {
-            // Mock error response
-            return { data: { success: false, message: 'Email address already in use.' }, response: { data: { message: 'Email address already in use.' } } };
-        }
-    }
-};
-
-const toast = {
-    success: (msg) => console.log('TOAST SUCCESS:', msg),
-    error: (msg) => console.error('TOAST ERROR:', msg)
-};
+import toast from 'react-hot-toast';
+import { userAPI } from '../../services/api';
 
 const schema = yup.object({
     firstName: yup
@@ -76,9 +36,9 @@ const schema = yup.object({
     positionId: yup.number().typeError('Position must be a number').optional().nullable().transform((curr, orig) => orig === '' ? null : curr),
 });
 
-const UserCreateContent = () => {
+const UserCreate = () => {
     // Note: useNavigate requires Router context, provided by HashRouter wrapper
-    const navigate = useNavigate(); 
+    const navigate = useNavigate();
     const [showPassword, setShowPassword] = useState(false);
     const [roles, setRoles] = useState([]);
     const [positions, setPositions] = useState([]);
@@ -139,7 +99,7 @@ const UserCreateContent = () => {
             if (response.data.success) {
                 toast.success('User created successfully!');
                 // Use hash navigation compatible path
-                navigate('/users'); 
+                navigate('/users');
             } else {
                 setError('root', {
                     type: 'manual',
@@ -190,14 +150,14 @@ const UserCreateContent = () => {
                     {/* Use custom card styling */}
                     <div className="card shadow-lg rounded-xl p-8">
                         <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
-                            
+
                             {/* Personal Information Section */}
                             <div>
                                 <h3 className="text-xl font-bold text-gray-900 mb-6 border-b border-red-100 pb-2">
                                     Personal Information
                                 </h3>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    
+
                                     {/* First Name */}
                                     <div className="form-group">
                                         <label htmlFor="firstName" className="form-label">
@@ -239,7 +199,7 @@ const UserCreateContent = () => {
                                             <p className="error-message">{errors.lastName.message}</p>
                                         )}
                                     </div>
-                                    
+
                                     {/* Email */}
                                     <div className="form-group">
                                         <label htmlFor="email" className="form-label">
@@ -292,7 +252,7 @@ const UserCreateContent = () => {
                                             <p className="error-message">{errors.password.message}</p>
                                         )}
                                     </div>
-                                    
+
                                     {/* Phone */}
                                     <div className="form-group">
                                         <label htmlFor="phone" className="form-label">
@@ -335,7 +295,7 @@ const UserCreateContent = () => {
                                         )}
                                     </div>
                                 </div>
-                                
+
                                 {/* Address */}
                                 <div className="form-group mt-6">
                                     <label htmlFor="address" className="form-label">
@@ -364,7 +324,7 @@ const UserCreateContent = () => {
                                     Role & Position Assignment
                                 </h3>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    
+
                                     {/* Role */}
                                     <div className="form-group">
                                         <label htmlFor="roleId" className="form-label">
@@ -428,7 +388,7 @@ const UserCreateContent = () => {
 
                             {/* Submit Buttons */}
                             <div className="border-t border-red-300 pt-6 flex justify-end space-x-4">
-                                
+
                                 {/* Cancel Button */}
                                 <Link
                                     to="/users"
@@ -436,7 +396,7 @@ const UserCreateContent = () => {
                                 >
                                     Cancel
                                 </Link>
-                                
+
                                 {/* Create Button */}
                                 <button
                                     type="submit"
@@ -459,12 +419,5 @@ const UserCreateContent = () => {
         </div>
     );
 };
-
-// Wrap UserCreateContent with HashRouter for local routing context compatibility
-const UserCreate = () => (
-    <HashRouter>
-        <UserCreateContent />
-    </HashRouter>
-);
 
 export default UserCreate;

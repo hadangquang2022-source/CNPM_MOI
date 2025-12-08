@@ -7,6 +7,7 @@ import {
 import { Toaster } from "react-hot-toast";
 
 import { AuthProvider } from "./contexts/AuthContext";
+import { CartProvider } from "./contexts/CartContext";
 import AppLayout from "./components/layout/AppLayout";
 
 // Pages
@@ -22,12 +23,22 @@ import UserEdit from "./pages/users/UserEdit";
 import ProductList from "./pages/products/ProductList";
 import ProductCreate from "./pages/products/ProductCreate";
 import ProductEdit from "./pages/products/ProductEdit";
+import Shop from "./pages/shop/Shop";
+import ProductDetail from "./pages/shop/ProductDetail";
+import Cart from "./pages/shop/Cart";
+import Checkout from "./pages/shop/Checkout";
+import Wishlist from "./pages/shop/Wishlist";
+import RecentlyViewed from "./pages/shop/RecentlyViewed";
+import OrderList from "./pages/orders/OrderList";
+import MyOrders from "./pages/orders/MyOrders";
+import TrackOrder from "./pages/orders/TrackOrder";
 import PublicRoute from "./routes/PublicRoute";
 import ProtectedRoute from "./routes/ProtectedRoute";
 
 function App() {
     return (
         <AuthProvider>
+            <CartProvider>
             <Router
                 future={{
                     v7_startTransition: true,
@@ -70,6 +81,25 @@ function App() {
                                 <PublicRoute>
                                     <ResetPassword />
                                 </PublicRoute>
+                            }
+                        />
+
+                        {/* Shop Routes - Public */}
+                        <Route path="/shop" element={<Shop />} />
+                        <Route path="/shop/product/:id" element={<ProductDetail />} />
+                        <Route path="/cart" element={<Cart />} />
+                        <Route path="/checkout" element={<Checkout />} />
+                        <Route path="/my-orders" element={<MyOrders />} />
+                        <Route path="/track-order" element={<TrackOrder />} />
+                        <Route path="/recently-viewed" element={<RecentlyViewed />} />
+
+                        {/* Protected Shop Routes */}
+                        <Route
+                            path="/wishlist"
+                            element={
+                                <ProtectedRoute>
+                                    <Wishlist />
+                                </ProtectedRoute>
                             }
                         />
 
@@ -120,11 +150,12 @@ function App() {
                             }
                         />
 
-                        {/* Product Routes */}
+
+                        {/* Product Management - Admin only */}
                         <Route
                             path="/products"
                             element={
-                                <ProtectedRoute>
+                                <ProtectedRoute requiredRole="Admin">
                                     <ProductList />
                                 </ProtectedRoute>
                             }
@@ -133,7 +164,7 @@ function App() {
                         <Route
                             path="/products/create"
                             element={
-                                <ProtectedRoute>
+                                <ProtectedRoute requiredRole="Admin">
                                     <ProductCreate />
                                 </ProtectedRoute>
                             }
@@ -142,15 +173,25 @@ function App() {
                         <Route
                             path="/products/edit/:id"
                             element={
-                                <ProtectedRoute>
+                                <ProtectedRoute requiredRole="Admin">
                                     <ProductEdit />
                                 </ProtectedRoute>
                             }
                         />
 
+                        {/* Order Management - Admin/Manager */}
+                        <Route
+                            path="/orders"
+                            element={
+                                <ProtectedRoute requiredRole="Manager">
+                                    <OrderList />
+                                </ProtectedRoute>
+                            }
+                        />
+
                         {/* Default */}
-                        <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                        <Route path="/" element={<Navigate to="/shop" replace />} />
+                        <Route path="*" element={<Navigate to="/shop" replace />} />
                     </Routes>
 
                     <Toaster
@@ -165,6 +206,7 @@ function App() {
                     />
                 </AppLayout>
             </Router>
+            </CartProvider>
         </AuthProvider>
     );
 }

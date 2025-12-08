@@ -1,6 +1,7 @@
 const Product = require('../models/Product');
 const { Op, literal, fn, col } = require('sequelize');
 const { sequelize } = require('../config/database');
+const { OrderItem, Order, ProductReview, Wishlist } = require('../models');
 
 /**
  * @swagger
@@ -502,6 +503,144 @@ exports.getAllProductsFallback = async (req, res) => {
             success: false,
             message: 'Server error', 
             error: error.message 
+        });
+    }
+};
+
+// Get similar products (same category, excluding current product)
+exports.getSimilarProducts = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const limit = parseInt(req.query.limit) || 8;
+
+        const currentProduct = await Product.findByPk(id);
+        if (!currentProduct) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy sản phẩm'
+            });
+        }
+
+        // Find products in same category
+        const whereCondition = {
+            id: { [Op.ne]: id },
+            isActive: true
+        };
+
+        if (currentProduct.category) {
+            whereCondition.category = currentProduct.category;
+        }
+
+        let similarProducts = await Product.findAll({
+            where: whereCondition,
+            limit,
+            order: sequelize.random()
+        });
+
+        // If not enough products in same category, get from other categories
+        if (similarProducts.length < limit) {
+            const moreProducts = await Product.findAll({
+                where: {
+                    id: { 
+                        [Op.notIn]: [id, ...similarProducts.map(p => p.id)]
+                    },
+                    isActive: true
+                },
+                limit: limit - similarProducts.length,
+                order: sequelize.random()
+            });
+            similarProducts = [...similarProducts, ...moreProducts];
+        }
+
+        return res.json({
+            success: true,
+            data: similarProducts
+        });
+
+    } catch (error) {
+        console.error('Get similar products error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Lỗi server',
+            error: error.message
+        });
+    }
+};
+
+// Get product statistics (buyers count, reviewers count, wishlist count)
+exports.getProductStats = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const product = await Product.findByPk(id);
+        if (!product) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy sản phẩm'
+            });
+        }
+
+        // Count unique buyers (from delivered orders)
+        const buyersCount = await OrderItem.count({
+            include: [{
+                model: Order,
+                as: 'order',
+                where: { status: 'delivered' },
+                attributes: []
+            }],
+            where: { productId: id },
+            distinct: true,
+            col: 'order.userId'
+        });
+
+        // Count total sold quantity
+        const soldResult = await OrderItem.findOne({
+            include: [{
+                model: Order,
+                as: 'order',
+                where: { status: 'delivered' },
+                attributes: []
+            }],
+            where: { productId: id },
+            attributes: [[fn('SUM', col('quantity')), 'totalSold']],
+            raw: true
+        });
+
+        // Count reviewers
+        const reviewersCount = await ProductReview.count({
+            where: { productId: id, isApproved: true }
+        });
+
+        // Average rating
+        const avgRating = await ProductReview.findOne({
+            where: { productId: id, isApproved: true },
+            attributes: [[fn('AVG', col('rating')), 'averageRating']],
+            raw: true
+        });
+
+        // Wishlist count
+        const wishlistCount = await Wishlist.count({
+            where: { productId: id }
+        });
+
+        return res.json({
+            success: true,
+            data: {
+                productId: id,
+                buyersCount: buyersCount || 0,
+                totalSold: parseInt(soldResult?.totalSold) || 0,
+                reviewersCount: reviewersCount || 0,
+                averageRating: parseFloat(avgRating?.averageRating) || 0,
+                wishlistCount: wishlistCount || 0
+            }
+        });
+
+    } catch (error) {
+        console.error('Get product stats error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Lỗi server',
+            error: error.message
         });
     }
 };

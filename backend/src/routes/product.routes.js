@@ -46,6 +46,12 @@ router.get('/category/:category', productController.getProductsByCategory);
 // API lấy chi tiết sản phẩm
 router.get('/:id', productController.getProductById);
 
+// API lấy sản phẩm tương tự
+router.get('/:id/similar', productController.getSimilarProducts);
+
+// API lấy thống kê sản phẩm (số người mua, đánh giá, yêu thích)
+router.get('/:id/stats', productController.getProductStats);
+
 // Protected routes (requires authentication)
 // API tạo sản phẩm mới
 router.post('/', authMiddleware, validateProduct, productController.createProduct);

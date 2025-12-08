@@ -41,11 +41,7 @@ const User = sequelize.define('User', {
     },
     phone: {
         type: DataTypes.STRING(20),
-        allowNull: true,
-        validate: {
-            isNumeric: true,
-            len: [10, 20]
-        }
+        allowNull: true
     },
     address: {
         type: DataTypes.TEXT,

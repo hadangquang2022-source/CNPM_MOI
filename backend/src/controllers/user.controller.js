@@ -1,11 +1,11 @@
 const fs = require('fs');
 const path = require('path');
-const { User, Role, Position } = require('../models');
+const { User, Role } = require('../models');
 const { Op } = require('sequelize');
 
 const getAllUsers = async (req, res) => {
     try {
-        const { page = 1, limit = 10, search, roleId, positionId, isActive } = req.query;
+        const { page = 1, limit = 10, search, roleId, isActive } = req.query;
         const offset = (page - 1) * limit;
 
         // Build where clause
@@ -21,14 +21,12 @@ const getAllUsers = async (req, res) => {
         }
 
         if (roleId) whereClause.roleId = roleId;
-        if (positionId) whereClause.positionId = positionId;
         if (isActive !== undefined) whereClause.isActive = isActive === 'true';
 
         const { count, rows: users } = await User.findAndCountAll({
             where: whereClause,
             include: [
-                { model: Role, as: 'role' },
-                { model: Position, as: 'position' }
+                { model: Role, as: 'role' }
             ],
             limit: parseInt(limit),
             offset: parseInt(offset),
@@ -63,8 +61,7 @@ const getUserById = async (req, res) => {
 
         const user = await User.findByPk(id, {
             include: [
-                { model: Role, as: 'role' },
-                { model: Position, as: 'position' }
+                { model: Role, as: 'role' }
             ]
         });
 
@@ -91,7 +88,7 @@ const getUserById = async (req, res) => {
 
 const createUser = async (req, res) => {
     try {
-        const { firstName, lastName, email, password, phone, address, dateOfBirth, roleId, positionId } = req.body;
+        const { firstName, lastName, email, password, phone, address, dateOfBirth, roleId } = req.body;
 
         // Check if user already exists
         const existingUser = await User.findOne({ where: { email } });
@@ -102,23 +99,13 @@ const createUser = async (req, res) => {
             });
         }
 
-        // Validate role and position if provided
+        // Validate role if provided
         if (roleId) {
             const role = await Role.findByPk(roleId);
             if (!role || !role.isActive) {
                 return res.status(400).json({
                     success: false,
                     message: 'Invalid role selected'
-                });
-            }
-        }
-
-        if (positionId) {
-            const position = await Position.findByPk(positionId);
-            if (!position || !position.isActive) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Invalid position selected'
                 });
             }
         }
@@ -136,7 +123,6 @@ const createUser = async (req, res) => {
             address,
             dateOfBirth,
             roleId: roleId || null,
-            positionId: positionId || null,
             avatar
         };
 
@@ -145,8 +131,7 @@ const createUser = async (req, res) => {
         // Get user with associations
         const userWithDetails = await User.findByPk(user.id, {
             include: [
-                { model: Role, as: 'role' },
-                { model: Position, as: 'position' }
+                { model: Role, as: 'role' }
             ]
         });
 
@@ -176,7 +161,7 @@ const createUser = async (req, res) => {
 const updateUser = async (req, res) => {
     try {
         const { id } = req.params;
-        const { firstName, lastName, email, phone, address, dateOfBirth, roleId, positionId, isActive } = req.body;
+        const { firstName, lastName, email, phone, address, dateOfBirth, roleId, isActive } = req.body;
 
         const user = await User.findByPk(id);
         if (!user) {
@@ -211,7 +196,7 @@ const updateUser = async (req, res) => {
             }
         }
 
-        // Validate role and position if provided
+        // Validate role if provided
         if (roleId && roleId !== user.roleId) {
             const role = await Role.findByPk(roleId);
             if (!role || !role.isActive) {
@@ -225,23 +210,6 @@ const updateUser = async (req, res) => {
                 return res.status(400).json({
                     success: false,
                     message: 'Invalid role selected'
-                });
-            }
-        }
-
-        if (positionId && positionId !== user.positionId) {
-            const position = await Position.findByPk(positionId);
-            if (!position || !position.isActive) {
-                // Delete uploaded file if position invalid
-                if (req.file) {
-                    fs.unlink(req.file.path, (err) => {
-                        if (err) console.error('Error deleting file:', err);
-                    });
-                }
-
-                return res.status(400).json({
-                    success: false,
-                    message: 'Invalid position selected'
                 });
             }
         }
@@ -265,7 +233,6 @@ const updateUser = async (req, res) => {
         if (address !== undefined) user.address = address;
         if (dateOfBirth !== undefined) user.dateOfBirth = dateOfBirth;
         if (roleId !== undefined) user.roleId = roleId || null;
-        if (positionId !== undefined) user.positionId = positionId || null;
         if (isActive !== undefined) user.isActive = isActive;
 
         await user.save();
@@ -273,8 +240,7 @@ const updateUser = async (req, res) => {
         // Get updated user with associations
         const updatedUser = await User.findByPk(user.id, {
             include: [
-                { model: Role, as: 'role' },
-                { model: Position, as: 'position' }
+                { model: Role, as: 'role' }
             ]
         });
 
@@ -354,8 +320,7 @@ const toggleUserStatus = async (req, res) => {
         // Get updated user with associations
         const updatedUser = await User.findByPk(user.id, {
             include: [
-                { model: Role, as: 'role' },
-                { model: Position, as: 'position' }
+                { model: Role, as: 'role' }
             ]
         });
 
@@ -395,27 +360,6 @@ const getRoles = async (req, res) => {
     }
 };
 
-const getPositions = async (req, res) => {
-    try {
-        const positions = await Position.findAll({
-            where: { isActive: true },
-            order: [['title', 'ASC']]
-        });
-
-        res.json({
-            success: true,
-            data: { positions }
-        });
-    } catch (error) {
-        console.error('Get positions error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to fetch positions',
-            error: error.message
-        });
-    }
-};
-
 module.exports = {
     getAllUsers,
     getUserById,
@@ -423,6 +367,5 @@ module.exports = {
     updateUser,
     deleteUser,
     toggleUserStatus,
-    getRoles,
-    getPositions
+    getRoles
 };

@@ -2,7 +2,7 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const nodemailer = require('nodemailer');
-const { User, Role, Position } = require('../models');
+const { User, Role } = require('../models');
 
 // Store for blacklisted tokens (in production, use Redis)
 const tokenBlacklist = new Set();
@@ -64,8 +64,6 @@ const isTokenBlacklisted = (token) => {
  *                 format: date
  *               roleId:
  *                 type: integer
- *               positionId:
- *                 type: integer
  *     responses:
  *       201:
  *         description: User registered successfully
@@ -74,7 +72,7 @@ const isTokenBlacklisted = (token) => {
  */
 const register = async (req, res) => {
     try {
-        const { firstName, lastName, email, password, phone, address, dateOfBirth, roleId, positionId } = req.body;
+        const { firstName, lastName, email, password, phone, address, dateOfBirth, roleId } = req.body;
 
         // Check if user already exists
         const existingUser = await User.findOne({ where: { email } });
@@ -85,24 +83,23 @@ const register = async (req, res) => {
             });
         }
 
-        // Validate role and position if provided
-        let role = null, position = null;
-        if (roleId) {
-            role = await Role.findByPk(roleId);
+        // If no roleId provided, default to "Customer" role
+        let finalRoleId = roleId;
+        if (!finalRoleId) {
+            const customerRole = await Role.findOne({ where: { name: 'Customer' } });
+            if (customerRole) {
+                finalRoleId = customerRole.id;
+            }
+        }
+
+        // Validate role if provided
+        let role = null;
+        if (finalRoleId) {
+            role = await Role.findByPk(finalRoleId);
             if (!role || !role.isActive) {
                 return res.status(400).json({
                     success: false,
                     message: 'Invalid role selected'
-                });
-            }
-        }
-
-        if (positionId) {
-            position = await Position.findByPk(positionId);
-            if (!position || !position.isActive) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Invalid position selected'
                 });
             }
         }
@@ -116,8 +113,7 @@ const register = async (req, res) => {
             phone: phone || null,
             address: address || null,
             dateOfBirth: dateOfBirth || null,
-            roleId: roleId || null,
-            positionId: positionId || null
+            roleId: finalRoleId || null
         };
 
         const user = await User.create(userData);
@@ -128,8 +124,7 @@ const register = async (req, res) => {
         // Get user with associations
         const userWithDetails = await User.findByPk(user.id, {
             include: [
-                { model: Role, as: 'role' },
-                { model: Position, as: 'position' }
+                { model: Role, as: 'role' }
             ]
         });
 
@@ -196,8 +191,7 @@ const login = async (req, res) => {
         const user = await User.findOne({
             where: { email },
             include: [
-                { model: Role, as: 'role' },
-                { model: Position, as: 'position' }
+                { model: Role, as: 'role' }
             ]
         });
 
@@ -266,7 +260,7 @@ const logout = async (req, res) => {
     try {
         // Get token from header
         const token = req.header('Authorization')?.replace('Bearer ', '');
-        
+
         if (token) {
             // Add token to blacklist
             tokenBlacklist.add(token);
@@ -563,8 +557,7 @@ const getProfile = async (req, res) => {
     try {
         const user = await User.findByPk(req.user.id, {
             include: [
-                { model: Role, as: 'role' },
-                { model: Position, as: 'position' }
+                { model: Role, as: 'role' }
             ]
         });
 
@@ -635,8 +628,7 @@ const updateProfile = async (req, res) => {
         // Get updated user with associations
         const updatedUser = await User.findByPk(user.id, {
             include: [
-                { model: Role, as: 'role' },
-                { model: Position, as: 'position' }
+                { model: Role, as: 'role' }
             ]
         });
 
