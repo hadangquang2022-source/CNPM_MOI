@@ -1,576 +1,455 @@
-import React, { useState, useEffect } from 'react';
-import { HashRouter, Link } from 'react-router-dom';
-import { Search, Plus, Edit, Trash2, ToggleLeft, ToggleRight, Filter, Users, User, Award, Briefcase } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { userAPI } from '../../services/api';
+import toast from 'react-hot-toast';
+import { 
+    Users, 
+    Plus, 
+    Search, 
+    Edit, 
+    Trash2, 
+    ToggleLeft, 
+    ToggleRight,
+    ChevronLeft,
+    ChevronRight,
+    Mail,
+    Phone,
+    Shield,
+    UserCheck,
+    UserX,
+    RefreshCw
+} from 'lucide-react';
 
-// --- MOCKING EXTERNAL IMPORTS FOR SINGLE-FILE RUNNABLE ENVIRONMENT ---
-
-// Mock data
-const mockUsers = [
-    { id: 1, firstName: 'Jane', lastName: 'Doe', email: 'jane.d@corp.com', role: { id: 1, name: 'Admin' }, position: { id: 101, title: 'CTO', department: 'Executive' }, isActive: true, createdAt: '2023-01-15' },
-    { id: 2, firstName: 'John', lastName: 'Smith', email: 'john.s@corp.com', role: { id: 2, name: 'Manager' }, position: { id: 102, title: 'Analyst', department: 'Finance' }, isActive: false, createdAt: '2023-03-20' },
-    { id: 3, firstName: 'Alice', lastName: 'Lee', email: 'alice.l@corp.com', role: { id: 3, name: 'Staff' }, position: { id: 103, title: 'Engineer', department: 'Tech' }, isActive: true, createdAt: '2024-01-05' },
-    { id: 4, firstName: 'Bob', lastName: 'Brown', email: 'bob.b@corp.com', role: { id: 3, name: 'Staff' }, position: { id: 103, title: 'Engineer', department: 'Tech' }, isActive: true, createdAt: '2024-02-10' },
-];
-
-const mockRoles = [{ id: 1, name: 'Admin' }, { id: 2, name: 'Manager' }, { id: 3, name: 'Staff' }];
-const mockPositions = [
-    { id: 101, title: 'CTO', department: 'Executive' },
-    { id: 102, title: 'Analyst', department: 'Finance' },
-    { id: 103, title: 'Engineer', department: 'Tech' },
-];
-
-const userAPI = {
-    getUsers: async (params) => {
-        await new Promise(resolve => setTimeout(resolve, 300));
-        let filteredUsers = mockUsers;
-        
-        if (params.search) {
-            const term = params.search.toLowerCase();
-            filteredUsers = filteredUsers.filter(u => 
-                u.firstName.toLowerCase().includes(term) || 
-                u.lastName.toLowerCase().includes(term) || 
-                u.email.toLowerCase().includes(term)
-            );
-        }
-        if (params.roleId) {
-            filteredUsers = filteredUsers.filter(u => u.role?.id === parseInt(params.roleId));
-        }
-        if (params.positionId) {
-            filteredUsers = filteredUsers.filter(u => u.position?.id === parseInt(params.positionId));
-        }
-        if (params.isActive !== undefined) {
-            const isActiveBool = params.isActive === 'true';
-            filteredUsers = filteredUsers.filter(u => u.isActive === isActiveBool);
-        }
-
-        const totalItems = filteredUsers.length;
-        const totalPages = Math.ceil(totalItems / params.limit);
-        const startIndex = (params.page - 1) * params.limit;
-        const endIndex = startIndex + params.limit;
-        const users = filteredUsers.slice(startIndex, endIndex);
-
-        return {
-            data: {
-                success: true,
-                data: {
-                    users,
-                    pagination: {
-                        totalPages,
-                        totalItems,
-                        itemsPerPage: params.limit,
-                        currentPage: params.page
-                    }
-                }
-            }
-        };
-    },
-    getRoles: async () => ({ data: { success: true, data: { roles: mockRoles } } }),
-    getPositions: async () => ({ data: { success: true, data: { positions: mockPositions } } }),
-    deleteUser: async (userId) => {
-        await new Promise(resolve => setTimeout(resolve, 200));
-        // Mock successful deletion
-        return { data: { success: true } };
-    },
-    toggleUserStatus: async (userId) => {
-        await new Promise(resolve => setTimeout(resolve, 200));
-        // Mock successful toggle
-        return { data: { success: true } };
-    }
-};
-
-const useAuth = () => ({
-    user: { role: { name: 'Admin' } } // Mock current user as Admin for full access
-});
-
-const toast = {
-    success: (msg) => console.log('TOAST SUCCESS:', msg),
-    error: (msg) => console.error('TOAST ERROR:', msg)
-};
-// --- END MOCKING ---
-
-
-const UserListContent = () => {
-    // Note: Since we are using HashRouter, Link and URL logic should use '#' based paths if using useNavigate/Link 
-    // outside of the main App.js Routes declaration. For this simple case, we rely on Link.
-    const { user: currentUser } = useAuth();
+const UserList = () => {
     const [users, setUsers] = useState([]);
-    const [roles, setRoles] = useState([]);
-    const [positions, setPositions] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [roleFilter, setRoleFilter] = useState('');
+    const [statusFilter, setStatusFilter] = useState('');
+    const [roles, setRoles] = useState([]);
     const [pagination, setPagination] = useState({
-        currentPage: 1,
-        totalPages: 1,
-        totalItems: 0,
-        itemsPerPage: 5 // Reduced itemsPerPage for better visibility in a small preview pane
+        page: 1,
+        limit: 10,
+        total: 0,
+        totalPages: 0
     });
 
-    // Filters
-    const [search, setSearch] = useState('');
-    const [roleFilter, setRoleFilter] = useState('');
-    const [positionFilter, setPositionFilter] = useState('');
-    const [statusFilter, setStatusFilter] = useState('');
-
-    // State to trigger fetch on filter change
-    const [triggerFetch, setTriggerFetch] = useState(0);
-
-    // Fetch data
-    useEffect(() => {
-        fetchUsers();
-    }, [pagination.currentPage, triggerFetch]);
-
-    useEffect(() => {
-        fetchRoles();
-        fetchPositions();
-    }, []);
-
-    // Helper function to apply filters
-    const handleFilterChange = (setter, value) => {
-        setter(value);
-        setPagination(prev => ({ ...prev, currentPage: 1 }));
-        setTriggerFetch(prev => prev + 1);
-    };
-
+    // Fetch users
     const fetchUsers = async () => {
         try {
             setLoading(true);
             const params = {
-                page: pagination.currentPage,
-                limit: pagination.itemsPerPage,
-                search: search.trim() || undefined,
+                page: pagination.page,
+                limit: pagination.limit,
+                search: searchTerm || undefined,
                 roleId: roleFilter || undefined,
-                positionId: positionFilter || undefined,
-                isActive: statusFilter !== '' ? statusFilter : undefined,
+                isActive: statusFilter !== '' ? statusFilter : undefined
             };
 
             const response = await userAPI.getUsers(params);
-            if (response.data.success) {
-                setUsers(response.data.data.users);
-                setPagination({
-                    ...pagination,
-                    ...response.data.data.pagination
-                });
-            }
+            // API returns { success: true, data: { users: [...], pagination: {...} } }
+            const usersData = response.data?.data?.users || response.data?.users || [];
+            const paginationData = response.data?.data?.pagination || response.data?.pagination || {};
+            
+            setUsers(Array.isArray(usersData) ? usersData : []);
+            setPagination(prev => ({
+                ...prev,
+                total: paginationData.totalItems || paginationData.total || 0,
+                totalPages: paginationData.totalPages || 1
+            }));
         } catch (error) {
             console.error('Error fetching users:', error);
-            toast.error('Failed to fetch users');
+            toast.error('Không thể tải danh sách người dùng');
+            setUsers([]);
         } finally {
             setLoading(false);
         }
     };
 
+    // Fetch roles for filter
     const fetchRoles = async () => {
         try {
             const response = await userAPI.getRoles();
-            if (response.data.success) {
-                setRoles(response.data.data.roles);
-            }
+            // API returns { success: true, data: { roles: [...] } }
+            const rolesData = response.data?.data?.roles || response.data?.roles || response.data || [];
+            setRoles(Array.isArray(rolesData) ? rolesData : []);
         } catch (error) {
             console.error('Error fetching roles:', error);
+            setRoles([]);
         }
     };
 
-    const fetchPositions = async () => {
+    useEffect(() => {
+        fetchRoles();
+    }, []);
+
+    useEffect(() => {
+        fetchUsers();
+    }, [pagination.page, searchTerm, roleFilter, statusFilter]);
+
+    // Handle search
+    const handleSearch = (e) => {
+        setSearchTerm(e.target.value);
+        setPagination(prev => ({ ...prev, page: 1 }));
+    };
+
+    // Handle toggle status
+    const handleToggleStatus = async (userId) => {
         try {
-            const response = await userAPI.getPositions();
-            if (response.data.success) {
-                setPositions(response.data.data.positions);
-            }
-        } catch (error) {
-            console.error('Error fetching positions:', error);
-        }
-    };
-
-    const handleDeleteUser = async (userId, userName) => {
-        // NOTE: Replacing window.confirm with console log as per instructions
-        console.log(`[ACTION] Confirming delete for user: ${userName} (ID: ${userId})`);
-        
-        if (confirm(`Are you sure you want to delete user "${userName}"?`)) {
-            try {
-                const response = await userAPI.deleteUser(userId);
-                if (response.data.success) {
-                    toast.success('User deleted successfully');
-                    setTriggerFetch(prev => prev + 1);
-                } else {
-                    toast.error('Failed to delete user');
-                }
-            } catch (error) {
-                console.error('Error deleting user:', error);
-                toast.error('Failed to delete user');
-            }
-        }
-    };
-
-    const handleToggleStatus = async (userId, currentStatus, userName) => {
-        try {
-            const response = await userAPI.toggleUserStatus(userId);
-            if (response.data.success) {
-                toast.success(`User ${currentStatus ? 'deactivated' : 'activated'} successfully`);
-                setTriggerFetch(prev => prev + 1);
-            }
+            await userAPI.toggleUserStatus(userId);
+            toast.success('Đã cập nhật trạng thái người dùng');
+            fetchUsers();
         } catch (error) {
             console.error('Error toggling user status:', error);
-            toast.error('Failed to update user status');
+            toast.error('Không thể cập nhật trạng thái');
         }
     };
 
-    const clearFilters = () => {
-        setSearch('');
-        setRoleFilter('');
-        setPositionFilter('');
-        setStatusFilter('');
-        setPagination({ ...pagination, currentPage: 1 });
-        setTriggerFetch(prev => prev + 1);
+    // Handle delete user
+    const handleDeleteUser = async (userId, userName) => {
+        if (!window.confirm(`Bạn có chắc muốn xóa người dùng "${userName}"?`)) {
+            return;
+        }
+
+        try {
+            await userAPI.deleteUser(userId);
+            toast.success('Đã xóa người dùng');
+            fetchUsers();
+        } catch (error) {
+            console.error('Error deleting user:', error);
+            toast.error(error.response?.data?.message || 'Không thể xóa người dùng');
+        }
     };
 
-    const formatDate = (dateString) => {
-        if (!dateString) return 'N/A';
-        return new Date(dateString).toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric'
-        });
+    // Get role badge color
+    const getRoleBadgeColor = (roleName) => {
+        switch (roleName?.toLowerCase()) {
+            case 'admin':
+                return 'bg-red-100 text-red-800';
+            case 'manager':
+                return 'bg-purple-100 text-purple-800';
+            case 'staff':
+                return 'bg-blue-100 text-blue-800';
+            default:
+                return 'bg-gray-100 text-gray-800';
+        }
     };
-
-    const getStatusBadge = (isActive) => {
-        return isActive ? (
-            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
-                Active
-            </span>
-        ) : (
-            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">
-                Inactive
-            </span>
-        );
-    };
-
-    const isUserAdmin = currentUser?.role?.name === 'Admin';
-    const isUserManager = currentUser?.role?.name === 'Manager';
 
     return (
-        <div className="min-h-screen">
-            <div className="max-w-7xl mx-auto py-10 sm:px-6 lg:px-8">
+        <div className="min-h-screen bg-gray-50 py-8">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 {/* Header */}
-                <div className="px-4 py-6 sm:px-0 mb-6">
-                    <div className="flex items-center justify-between border-b border-red-300 pb-4">
-                        <div>
-                            <h1 className="text-4xl font-extrabold leading-tight text-gray-900">
-                                User Management
-                            </h1>
-                            <p className="mt-2 text-base text-gray-600">
-                                Manage user accounts, roles, and permissions.
-                            </p>
+                <div className="mb-8">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex items-center">
+                            <Users className="h-8 w-8 text-red-600 mr-3" />
+                            <div>
+                                <h1 className="text-2xl font-bold text-gray-900">Quản lý người dùng</h1>
+                                <p className="mt-1 text-sm text-gray-500">
+                                    Tổng cộng {pagination.total} người dùng
+                                </p>
+                            </div>
                         </div>
-                        {isUserAdmin && (
+                        <div className="mt-4 sm:mt-0 flex space-x-3">
+                            <button
+                                onClick={fetchUsers}
+                                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                            >
+                                <RefreshCw className="h-4 w-4 mr-2" />
+                                Làm mới
+                            </button>
                             <Link
                                 to="/users/create"
-                                // Use btn-primary for Create button
-                                className="btn btn-primary inline-flex items-center text-base"
+                                className="inline-flex items-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
                             >
                                 <Plus className="h-4 w-4 mr-2" />
-                                Create User
+                                Thêm người dùng
                             </Link>
-                        )}
+                        </div>
                     </div>
                 </div>
 
                 {/* Filters */}
-                <div className="px-4 sm:px-0 mb-10">
-                    {/* Use custom card styling */}
-                    <div className="card shadow-lg rounded-xl p-6">
-                        <div className="flex items-center justify-between mb-6 border-b border-red-100 pb-4">
-                            <h3 className="text-xl font-bold text-gray-900 flex items-center">
-                                <Filter className="h-6 w-6 mr-3 text-red-600" />
-                                Filters
-                            </h3>
-                            <button
-                                onClick={clearFilters}
-                                className="text-base font-semibold text-red-600 hover:text-red-700 transition-colors duration-200"
-                            >
-                                Clear all
-                            </button>
+                <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        {/* Search */}
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                            <input
+                                type="text"
+                                placeholder="Tìm kiếm theo tên, email..."
+                                value={searchTerm}
+                                onChange={handleSearch}
+                                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                            />
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                            {/* Search */}
-                            <div className="lg:col-span-2 form-group">
-                                <div className="relative">
-                                    <Search className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
-                                    <input
-                                        type="text"
-                                        placeholder="Search by name, email, or phone..."
-                                        value={search}
-                                        onChange={(e) => setSearch(e.target.value)}
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter') {
-                                                e.preventDefault();
-                                                handleFilterChange(setSearch, search);
-                                            }
-                                        }}
-                                        className="form-input pl-10"
-                                    />
-                                </div>
-                            </div>
+                        {/* Role Filter */}
+                        <div>
+                            <select
+                                value={roleFilter}
+                                onChange={(e) => {
+                                    setRoleFilter(e.target.value);
+                                    setPagination(prev => ({ ...prev, page: 1 }));
+                                }}
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                            >
+                                <option value="">Tất cả vai trò</option>
+                                {roles.map(role => (
+                                    <option key={role.id} value={role.id}>{role.name}</option>
+                                ))}
+                            </select>
+                        </div>
 
-                            {/* Role Filter */}
-                            <div className="form-group">
-                                <select
-                                    value={roleFilter}
-                                    onChange={(e) => handleFilterChange(setRoleFilter, e.target.value)}
-                                    className="form-input"
-                                >
-                                    <option value="">All Roles</option>
-                                    {roles.map((role) => (
-                                        <option key={role.id} value={role.id}>
-                                            {role.name}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
+                        {/* Status Filter */}
+                        <div>
+                            <select
+                                value={statusFilter}
+                                onChange={(e) => {
+                                    setStatusFilter(e.target.value);
+                                    setPagination(prev => ({ ...prev, page: 1 }));
+                                }}
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                            >
+                                <option value="">Tất cả trạng thái</option>
+                                <option value="true">Đang hoạt động</option>
+                                <option value="false">Đã khóa</option>
+                            </select>
+                        </div>
 
-                            {/* Position Filter */}
-                            <div className="form-group">
-                                <select
-                                    value={positionFilter}
-                                    onChange={(e) => handleFilterChange(setPositionFilter, e.target.value)}
-                                    className="form-input"
-                                >
-                                    <option value="">All Positions</option>
-                                    {positions.map((position) => (
-                                        <option key={position.id} value={position.id}>
-                                            {position.title}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            {/* Status Filter */}
-                            <div className="form-group">
-                                <select
-                                    value={statusFilter}
-                                    onChange={(e) => handleFilterChange(setStatusFilter, e.target.value)}
-                                    className="form-input"
-                                >
-                                    <option value="">All Status</option>
-                                    <option value="true">Active</option>
-                                    <option value="false">Inactive</option>
-                                </select>
-                            </div>
+                        {/* Clear Filters */}
+                        <div>
+                            <button
+                                onClick={() => {
+                                    setSearchTerm('');
+                                    setRoleFilter('');
+                                    setStatusFilter('');
+                                    setPagination(prev => ({ ...prev, page: 1 }));
+                                }}
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                            >
+                                Xóa bộ lọc
+                            </button>
                         </div>
                     </div>
                 </div>
 
                 {/* Users Table */}
-                <div className="px-4 sm:px-0">
-                    {/* Use custom card styling for the table container */}
-                    <div className="card shadow-lg rounded-xl overflow-hidden p-0"> 
-                        <div className="px-6 py-5 border-b border-red-100">
-                            <h3 className="text-xl font-bold text-gray-900 flex items-center">
-                                <Users className="h-6 w-6 mr-3 text-red-600" />
-                                Users ({pagination.totalItems})
-                            </h3>
+                <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+                    {loading ? (
+                        <div className="p-8 text-center">
+                            <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-red-600 border-t-transparent"></div>
+                            <p className="mt-2 text-gray-500">Đang tải...</p>
                         </div>
-
-                        {loading ? (
-                            <div className="flex justify-center py-10">
-                                <div className="spinner"></div>
-                            </div>
-                        ) : users.length === 0 ? (
-                            <div className="text-center py-10">
-                                <User className="mx-auto h-12 w-12 text-red-400 opacity-60" />
-                                <h3 className="mt-4 text-lg font-medium text-gray-900">No users found</h3>
-                                <p className="mt-1 text-base text-gray-500">
-                                    {search || roleFilter || positionFilter || statusFilter !== ''
-                                        ? 'Try adjusting your search or filter criteria.'
-                                        : 'Get started by creating a new user.'
-                                    }
-                                </p>
-                            </div>
-                        ) : (
-                            <div className="overflow-x-auto">
-                                <table className="min-w-full divide-y divide-gray-200">
-                                    <thead className="bg-red-50 border-b border-red-200">
-                                        <tr>
-                                            <th className="px-6 py-3 text-left text-xs font-semibold text-red-800 uppercase tracking-wider">
-                                                User
-                                            </th>
-                                            <th className="px-6 py-3 text-left text-xs font-semibold text-red-800 uppercase tracking-wider">
-                                                Role
-                                            </th>
-                                            <th className="px-6 py-3 text-left text-xs font-semibold text-red-800 uppercase tracking-wider">
-                                                Position
-                                            </th>
-                                            <th className="px-6 py-3 text-left text-xs font-semibold text-red-800 uppercase tracking-wider">
-                                                Status
-                                            </th>
-                                            <th className="px-6 py-3 text-left text-xs font-semibold text-red-800 uppercase tracking-wider">
-                                                Created
-                                            </th>
-                                            <th className="px-6 py-3 text-left text-xs font-semibold text-red-800 uppercase tracking-wider">
-                                                Actions
-                                            </th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="bg-white divide-y divide-gray-100">
-                                        {users.map((user) => (
-                                            <tr key={user.id} className="hover:bg-red-50 transition-colors duration-150">
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <div className="flex items-center">
-                                                        <div className="h-10 w-10 flex-shrink-0">
-                                                            <div className="h-10 w-10 rounded-full bg-red-500 flex items-center justify-center">
-                                                                <span className="text-white font-medium text-sm">
-                                                                    {user.firstName.charAt(0)}{user.lastName.charAt(0)}
+                    ) : users.length === 0 ? (
+                        <div className="p-8 text-center">
+                            <Users className="mx-auto h-12 w-12 text-gray-400" />
+                            <h3 className="mt-2 text-sm font-medium text-gray-900">Không có người dùng</h3>
+                            <p className="mt-1 text-sm text-gray-500">
+                                Chưa có người dùng nào phù hợp với bộ lọc.
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Người dùng
+                                        </th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Liên hệ
+                                        </th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Vai trò
+                                        </th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Trạng thái
+                                        </th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Ngày tạo
+                                        </th>
+                                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Hành động
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                    {users.map((user) => (
+                                        <tr key={user.id} className="hover:bg-gray-50">
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div className="flex items-center">
+                                                    <div className="h-10 w-10 flex-shrink-0">
+                                                        {user.avatar ? (
+                                                            <img
+                                                                className="h-10 w-10 rounded-full object-cover"
+                                                                src={`${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000'}${user.avatar}`}
+                                                                alt={`${user.firstName} ${user.lastName}`}
+                                                            />
+                                                        ) : (
+                                                            <div className="h-10 w-10 rounded-full bg-red-100 flex items-center justify-center">
+                                                                <span className="text-red-600 font-medium text-sm">
+                                                                    {user.firstName?.charAt(0)}{user.lastName?.charAt(0)}
                                                                 </span>
                                                             </div>
-                                                        </div>
-                                                        <div className="ml-4">
-                                                            <div className="text-sm font-medium text-gray-900">
-                                                                {user.firstName} {user.lastName}
-                                                            </div>
-                                                            <div className="text-sm text-gray-500">{user.email}</div>
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    {user.role ? (
-                                                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">
-                                                            {user.role.name}
-                                                        </span>
-                                                    ) : (
-                                                        <span className="text-gray-400">No role</span>
-                                                    )}
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <div className="text-sm font-medium text-gray-900">
-                                                        {user.position ? user.position.title : 'No position'}
-                                                    </div>
-                                                    {user.position?.department && (
-                                                        <div className="text-xs text-gray-500">{user.position.department}</div>
-                                                    )}
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    {getStatusBadge(user.isActive)}
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                    {formatDate(user.createdAt)}
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                                    <div className="flex items-center space-x-3">
-                                                        {(isUserAdmin || isUserManager) && (
-                                                            <>
-                                                                <Link
-                                                                    to={`/users/edit/${user.id}`}
-                                                                    className="text-orange-500 hover:text-orange-700 transition-colors" // Use orange for edit
-                                                                    title="Edit user"
-                                                                >
-                                                                    <Edit className="h-4 w-4" />
-                                                                </Link>
-                                                                <button
-                                                                    onClick={() => handleToggleStatus(user.id, user.isActive, `${user.firstName} ${user.lastName}`)}
-                                                                    className={user.isActive ? 'text-red-600 hover:text-red-800' : 'text-green-600 hover:text-green-800'}
-                                                                    title={user.isActive ? 'Deactivate user' : 'Activate user'}
-                                                                >
-                                                                    {user.isActive ? <ToggleRight className="h-5 w-5" /> : <ToggleLeft className="h-5 w-5" />}
-                                                                </button>
-                                                            </>
-                                                        )}
-                                                        {isUserAdmin && (
-                                                            <button
-                                                                onClick={() => handleDeleteUser(user.id, `${user.firstName} ${user.lastName}`)}
-                                                                className="text-red-700 hover:text-red-900 transition-colors"
-                                                                title="Delete user"
-                                                            >
-                                                                <Trash2 className="h-4 w-4" />
-                                                            </button>
                                                         )}
                                                     </div>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                                                    <div className="ml-4">
+                                                        <div className="text-sm font-medium text-gray-900">
+                                                            {user.firstName} {user.lastName}
+                                                        </div>
+                                                        <div className="text-sm text-gray-500">
+                                                            ID: {user.id}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div className="flex flex-col space-y-1">
+                                                    <div className="flex items-center text-sm text-gray-900">
+                                                        <Mail className="h-4 w-4 mr-2 text-gray-400" />
+                                                        {user.email}
+                                                    </div>
+                                                    {user.phone && (
+                                                        <div className="flex items-center text-sm text-gray-500">
+                                                            <Phone className="h-4 w-4 mr-2 text-gray-400" />
+                                                            {user.phone}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getRoleBadgeColor(user.role?.name)}`}>
+                                                    <Shield className="h-3 w-3 mr-1" />
+                                                    {user.role?.name || 'Customer'}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                {user.isActive ? (
+                                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                        <UserCheck className="h-3 w-3 mr-1" />
+                                                        Hoạt động
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                                        <UserX className="h-3 w-3 mr-1" />
+                                                        Đã khóa
+                                                    </span>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                {new Date(user.createdAt).toLocaleDateString('vi-VN')}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                <div className="flex items-center justify-end space-x-2">
+                                                    <button
+                                                        onClick={() => handleToggleStatus(user.id)}
+                                                        className={`p-2 rounded-lg transition-colors ${
+                                                            user.isActive 
+                                                                ? 'text-green-600 hover:bg-green-50' 
+                                                                : 'text-red-600 hover:bg-red-50'
+                                                        }`}
+                                                        title={user.isActive ? 'Khóa tài khoản' : 'Mở khóa tài khoản'}
+                                                    >
+                                                        {user.isActive ? (
+                                                            <ToggleRight className="h-5 w-5" />
+                                                        ) : (
+                                                            <ToggleLeft className="h-5 w-5" />
+                                                        )}
+                                                    </button>
+                                                    <Link
+                                                        to={`/users/edit/${user.id}`}
+                                                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                                        title="Chỉnh sửa"
+                                                    >
+                                                        <Edit className="h-5 w-5" />
+                                                    </Link>
+                                                    <button
+                                                        onClick={() => handleDeleteUser(user.id, `${user.firstName} ${user.lastName}`)}
+                                                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                        title="Xóa"
+                                                    >
+                                                        <Trash2 className="h-5 w-5" />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+
+                    {/* Pagination */}
+                    {pagination.totalPages > 1 && (
+                        <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+                            <div className="flex-1 flex justify-between sm:hidden">
+                                <button
+                                    onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
+                                    disabled={pagination.page === 1}
+                                    className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    Trước
+                                </button>
+                                <button
+                                    onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
+                                    disabled={pagination.page === pagination.totalPages}
+                                    className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    Sau
+                                </button>
                             </div>
-                        )}
-
-                        {/* Pagination */}
-                        {pagination.totalItems > pagination.itemsPerPage && (
-                            <div className="px-6 py-4 bg-red-50 border-t border-red-200">
-                                <div className="flex items-center justify-between">
-                                    {/* Summary */}
-                                    <div className="hidden sm:block">
-                                        <p className="text-sm text-gray-700">
-                                            Showing{' '}
-                                            <span className="font-semibold">{((pagination.currentPage - 1) * pagination.itemsPerPage) + 1}</span>
-                                            {' '}to{' '}
-                                            <span className="font-semibold">
-                                                {Math.min(pagination.currentPage * pagination.itemsPerPage, pagination.totalItems)}
-                                            </span>
-                                            {' '}of{' '}
-                                            <span className="font-semibold">{pagination.totalItems}</span>
-                                            {' '}results
-                                        </p>
-                                    </div>
-                                    
-                                    {/* Controls */}
-                                    <div className="flex-1 flex justify-between sm:justify-end">
-                                        <nav className="relative z-0 inline-flex rounded-md shadow-sm" aria-label="Pagination">
+                            <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                                <div>
+                                    <p className="text-sm text-gray-700">
+                                        Hiển thị{' '}
+                                        <span className="font-medium">{(pagination.page - 1) * pagination.limit + 1}</span>
+                                        {' '}-{' '}
+                                        <span className="font-medium">
+                                            {Math.min(pagination.page * pagination.limit, pagination.total)}
+                                        </span>
+                                        {' '}trong{' '}
+                                        <span className="font-medium">{pagination.total}</span> người dùng
+                                    </p>
+                                </div>
+                                <div>
+                                    <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+                                        <button
+                                            onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
+                                            disabled={pagination.page === 1}
+                                            className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            <ChevronLeft className="h-5 w-5" />
+                                        </button>
+                                        {[...Array(pagination.totalPages)].map((_, i) => (
                                             <button
-                                                onClick={() => setPagination({ ...pagination, currentPage: pagination.currentPage - 1 })}
-                                                disabled={pagination.currentPage <= 1}
-                                                className="relative inline-flex items-center px-4 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                                key={i + 1}
+                                                onClick={() => setPagination(prev => ({ ...prev, page: i + 1 }))}
+                                                className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                                                    pagination.page === i + 1
+                                                        ? 'z-10 bg-red-50 border-red-500 text-red-600'
+                                                        : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                                                }`}
                                             >
-                                                Previous
+                                                {i + 1}
                                             </button>
-                                            
-                                            {/* Page numbers (Only show a few around the current page) */}
-                                            {[...Array(pagination.totalPages)].map((_, index) => {
-                                                const page = index + 1;
-                                                const isCurrent = page === pagination.currentPage;
-                                                
-                                                // Basic visible range logic: show first, last, current, and +/- 1 page
-                                                const isVisible = isCurrent || page === 1 || page === pagination.totalPages || Math.abs(page - pagination.currentPage) <= 1;
-
-                                                if (isVisible) {
-                                                    return (
-                                                        <button
-                                                            key={page}
-                                                            onClick={() => setPagination({ ...pagination, currentPage: page })}
-                                                            className={`hidden sm:inline-flex items-center px-4 py-2 border text-sm font-semibold transition-colors
-                                                                ${isCurrent
-                                                                    ? 'z-10 bg-red-600 border-red-600 text-white shadow-md' // Active Page
-                                                                    : 'bg-white border-gray-300 text-gray-700 hover:bg-red-50' // Inactive Page
-                                                                }`}
-                                                        >
-                                                            {page}
-                                                        </button>
-                                                    );
-                                                }
-                                                return null;
-                                            })}
-
-                                            <button
-                                                onClick={() => setPagination({ ...pagination, currentPage: pagination.currentPage + 1 })}
-                                                disabled={pagination.currentPage >= pagination.totalPages}
-                                                className="relative inline-flex items-center px-4 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                            >
-                                                Next
-                                            </button>
-                                        </nav>
-                                    </div>
+                                        ))}
+                                        <button
+                                            onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
+                                            disabled={pagination.page === pagination.totalPages}
+                                            className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            <ChevronRight className="h-5 w-5" />
+                                        </button>
+                                    </nav>
                                 </div>
                             </div>
-                        )}
-                    </div>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
     );
 };
-
-// Wrap UserListContent with HashRouter for local routing context compatibility
-const UserList = () => (
-    <HashRouter>
-        <UserListContent />
-    </HashRouter>
-);
 
 export default UserList;

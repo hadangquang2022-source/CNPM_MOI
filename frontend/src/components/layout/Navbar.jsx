@@ -31,29 +31,34 @@ const Navbar = () => {
 
                         {/* Public Navigation Links */}
                         <div className="hidden md:ml-6 md:flex md:space-x-8">
-                            <Link
-                                to="/shop"
-                                className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-900 hover:text-red-600 transition-colors"
-                            >
-                                <Store className="h-4 w-4 mr-2" />
-                                Cửa hàng
-                            </Link>
+                            {/* Show Shop, Track Order, Recently Viewed only for non-admin/manager */}
+                            {(!user || (user?.role?.name !== 'Admin' && user?.role?.name !== 'Manager')) && (
+                                <>
+                                    <Link
+                                        to="/shop"
+                                        className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-900 hover:text-red-600 transition-colors"
+                                    >
+                                        <Store className="h-4 w-4 mr-2" />
+                                        Cửa hàng
+                                    </Link>
 
-                            <Link
-                                to="/track-order"
-                                className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors"
-                            >
-                                <FileText className="h-4 w-4 mr-2" />
-                                Tra cứu đơn
-                            </Link>
+                                    <Link
+                                        to="/track-order"
+                                        className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors"
+                                    >
+                                        <FileText className="h-4 w-4 mr-2" />
+                                        Tra cứu đơn
+                                    </Link>
 
-                            <Link
-                                to="/recently-viewed"
-                                className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors"
-                            >
-                                <History className="h-4 w-4 mr-2" />
-                                Đã xem
-                            </Link>
+                                    <Link
+                                        to="/recently-viewed"
+                                        className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors"
+                                    >
+                                        <History className="h-4 w-4 mr-2" />
+                                        Đã xem
+                                    </Link>
+                                </>
+                            )}
 
                             {/* Navigation Links - Only show when logged in */}
                             {user && (
@@ -114,22 +119,24 @@ const Navbar = () => {
 
                     {/* Right side - User menu or Auth buttons */}
                     <div className="flex items-center space-x-4">
-                        {/* Cart - Always visible */}
-                        <Link 
-                            to="/cart" 
-                            className="relative p-1 rounded-full text-gray-400 hover:text-red-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors"
-                        >
-                            <span className="sr-only">View cart</span>
-                            <ShoppingCart className="h-6 w-6" />
-                            {cartCount > 0 && (
-                                <span className="absolute -top-1 -right-1 h-5 w-5 bg-gradient-to-r from-red-500 to-orange-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
-                                    {cartCount > 99 ? '99+' : cartCount}
-                                </span>
-                            )}
-                        </Link>
+                        {/* Cart - Only for customers (hide for Admin/Manager) */}
+                        {(!user || (user.role?.name !== 'Admin' && user.role?.name !== 'Manager')) && (
+                            <Link 
+                                to="/cart" 
+                                className="relative p-1 rounded-full text-gray-400 hover:text-red-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors"
+                            >
+                                <span className="sr-only">View cart</span>
+                                <ShoppingCart className="h-6 w-6" />
+                                {cartCount > 0 && (
+                                    <span className="absolute -top-1 -right-1 h-5 w-5 bg-gradient-to-r from-red-500 to-orange-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                                        {cartCount > 99 ? '99+' : cartCount}
+                                    </span>
+                                )}
+                            </Link>
+                        )}
 
-                        {/* Wishlist - Only for logged in users */}
-                        {user && (
+                        {/* Wishlist - Only for logged in customers (hide for Admin/Manager) */}
+                        {user && user.role?.name !== 'Admin' && user.role?.name !== 'Manager' && (
                             <Link 
                                 to="/wishlist" 
                                 className="relative p-1 rounded-full text-gray-400 hover:text-red-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors"
@@ -182,29 +189,34 @@ const Navbar = () => {
                                             Your Profile
                                         </Link>
 
-                                        <Link
-                                            to="/my-orders"
-                                            className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
-                                        >
-                                            <FileText className="h-4 w-4 mr-3" />
-                                            Đơn hàng của tôi
-                                        </Link>
+                                        {/* Customer-only menu items */}
+                                        {user.role?.name !== 'Admin' && user.role?.name !== 'Manager' && (
+                                            <>
+                                                <Link
+                                                    to="/my-orders"
+                                                    className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                                                >
+                                                    <FileText className="h-4 w-4 mr-3" />
+                                                    Đơn hàng của tôi
+                                                </Link>
 
-                                        <Link
-                                            to="/wishlist"
-                                            className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
-                                        >
-                                            <Heart className="h-4 w-4 mr-3" />
-                                            Yêu thích
-                                        </Link>
+                                                <Link
+                                                    to="/wishlist"
+                                                    className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                                                >
+                                                    <Heart className="h-4 w-4 mr-3" />
+                                                    Yêu thích
+                                                </Link>
 
-                                        <Link
-                                            to="/recently-viewed"
-                                            className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
-                                        >
-                                            <History className="h-4 w-4 mr-3" />
-                                            Đã xem gần đây
-                                        </Link>
+                                                <Link
+                                                    to="/recently-viewed"
+                                                    className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                                                >
+                                                    <History className="h-4 w-4 mr-3" />
+                                                    Đã xem gần đây
+                                                </Link>
+                                            </>
+                                        )}
 
                                         <button
                                             onClick={handleLogout}
